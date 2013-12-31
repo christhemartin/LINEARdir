@@ -31,7 +31,7 @@ nptAllArray = 0*periods
 nptGoodArray = 0*periods
 
 #------------------------------------------------------------
-resultsfile = 'FTcoeffs.dat'
+fig = plt.figure()
 for i in range(np.size(ids)):
     # this star: 
     id = int(ids[i])
@@ -93,22 +93,53 @@ for i in range(np.size(ids)):
     chi2dofArray[i] = chi2dof
     print i, chi2dof
     
+    #------------------------------------------------------------
+    # printing results to file for each object
+    
+    resultsfile = 'FTcoeffs\\' + str(id) + '_FTcoeffs.dat'
     FTcoeffs = [id, period, chi2dof, sizeAll, sizeGood, noMP]
     FTcoeffs.extend(mtf.w_)
     FTcoeffs = [str(i) for i in FTcoeffs]
     ofile = open(resultsfile, 'a')
     ofile.write(" ".join(FTcoeffs) + "\n")
     
-print 'it took:', time.time() - start, 'seconds'
+    #------------------------------------------------------------
+    # Plot the phased light-curves
+    ax = fig.add_subplot(111)
+    ax.errorbar(phased_t, y, dy, fmt='.k', ecolor='gray', 
+                lw=1, ms=4, capsize=1.5)
+    ax.plot(phase_fit, y_fit, '-b', lw=2, alpha = .7)
+    ax.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+            zorder=2, alpha = .8)
+    
+    ax.set_xlim(0, 1)
+    ax.set_ylim(plt.ylim()[::-1])
+    ax.yaxis.set_major_locator(plt.MaxNLocator(4))
+    
+    ax.text(0.97, 0.96, "ID = %i" % id, ha='right', 
+            va='top',transform=ax.transAxes)
+    ax.text(0.03, 0.96, "P = %.2f hr" % (2 * np.pi / omega_best * 24.), 
+            ha='left', va='top', transform=ax.transAxes)
+    
+    ylim = ax.get_ylim()
+    ax.set_ylim(ylim[0], ylim[0] + 1.1 * (ylim[1] - ylim[0]))
+    ax.set_ylabel('mag')
+    ax.set_xlabel('phase')
+#    plt.show()
+    plt.savefig('FTplots\\' + str(id) + '_FTplot.png')
+    plt.clf()
+    
+print 'benchmarked at:', time.time() - start, 'seconds'
+
+
+
     ## ZI: here we should add code to save into a file (say, FTcoeffs/ID_FTcoeffs.dat) 
     ##      ID, period, chi2dof, sizeAll, sizeGood, noMP, and FFT eigencoefficients
     ## it would be nice to add a plot of the best-fit and data like we had before
     ## but instead of 6 panels, each star gets its own plot (say, FTplots/ID_FTplot.png) 
     ## for example, then we can search for all stars with chi2dof > 6 and look at
     ## their best fits
-
-
-
+    
 # quick plot here of chi2dof distribution for sanity check 
 ax = plt.axes()
 hist(chi2dofArray, bins='freedman', ax=ax, histtype='stepfilled', ec='k', fc='#AAAAAA')
