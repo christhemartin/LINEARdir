@@ -29,11 +29,13 @@ def read_data():
     print len(temp_data)
     data['id'] = [float(i[0]) for i in temp_data]
     data['period'] = [float(i[1]) for i in temp_data]
-    data['chi2dof'] = [float(i[2]) for i in temp_data]
-    data['sizeAll'] = [float(i[3]) for i in temp_data]
-    data['sizeGood'] = [float(i[4]) for i in temp_data]
-    data['noMP'] = [float(i[5]) for i in temp_data]
-    data['coefficients'] = [map(float, i[6:]) for i in temp_data]
+    data['chi2R'] = [float(i[2]) for i in temp_data]
+    data['chi2dof'] = [float(i[3]) for i in temp_data]
+    data['sigmaG'] = [float(i[4]) for i in temp_data]
+    data['sizeAll'] = [float(i[5]) for i in temp_data]
+    data['sizeGood'] = [float(i[6]) for i in temp_data]
+    data['noMP'] = [float(i[7]) for i in temp_data]
+    data['coefficients'] = [map(float, i[8:]) for i in temp_data]
     os.chdir(od)
     return data
 
@@ -65,30 +67,23 @@ def correlateCoeffs(data):
     positions = [dataIds.index(id) for id in ids]
     coeffs = [coeffs[i] for i in positions]
     coeffsDict = {}
-    coeffsDict['aa'] = [i[0] for i in coeffs]
-    coeffsDict['bb'] = [i[1] for i in coeffs]
-    coeffsDict['cc'] = [i[2] for i in coeffs]
-    coeffsDict['dd'] = [i[3] for i in coeffs]
-    coeffsDict['ee'] = [i[4] for i in coeffs]
-    coeffsDict['ff'] = [i[5] for i in coeffs]
-    coeffsDict['gg'] = [i[6] for i in coeffs]
-    coeffsDict['hh'] = [i[7] for i in coeffs]
-    coeffsDict['ii'] = [i[8] for i in coeffs]
-    coeffsDict['jj'] = [i[9] for i in coeffs]
-    coeffsDict['kk'] = [i[10] for i in coeffs]
-    coeffsDict['ll'] = [i[11] for i in coeffs]
-    coeffsDict['mm'] = [i[12] for i in coeffs]
+    for paramNum in range(len(coeffs)):
+        tempKey = 'P' + str(paramNum)
+    coeffsDict[tempKey] = [i[0] for i in coeffs]
 
     for key in coeffsDict.keys():
         print key, np.median(coeffsDict[key])
-#        ax = plt.figure()
-#        plt.title(key)
-#        #plt.plot(lcType, coeffsDict[key], '.b')
-#        hist(coeffsDict[key], bins='freedman')
-#        ax.ylim = [-5,15]
-#    plt.show()
+        ax = plt.figure()
+        plt.title(key)
+        #plt.plot(lcType, coeffsDict[key], '.b')
+        hist(coeffsDict[key], bins='freedman')
+        ax.ylim = [-5,15]
+    plt.show()
 
 def iterateFit(i, omega_best, t, y, dy, nptGoodArray, chi2dofArray, nptAllArray, chi2dofOld):
+    '''
+    depracated side project to iterate fit across numper of model parameters until chi2 is brought under threshold of 6
+    '''
     print "############### - Re-fitting - ################"
     chi2dof = highest = chi2dofOld
     noFTterms = 6

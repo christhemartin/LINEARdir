@@ -29,12 +29,14 @@ lcType = objlist[:,1]
 # its period from Paper III (Palaversa et al. 2013) 
 periods = objlist[:,2] 
 chi2dofArray = 0*periods
+chi2RArray = 0*periods
+sigmaGArray = 0*periods
 nptAllArray = 0*periods
 nptGoodArray = 0*periods
 
 #------------------------------------------------------------
 #open outfile for results before loop
-resultsfile = 'FTcoeffs\\iterFTcoeffs.dat'
+resultsfile = 'FTcoeffs\\FTcoeffs.dat'
 ofile = open(resultsfile, 'a')
 #open figure for plotting before loop
 fig = plt.figure()
@@ -72,6 +74,19 @@ for i in range(np.size(ids)):
     y_fit2 = np.dot(mtf._make_X(t), mtf.w_)  
     # ZI: the number of model parameters is: 
     noMP = 2 * noFTterms + 1
+    
+    #normalize the y data
+    Norm_y = (y  - np.mean(y))/np.std(y)
+    #find quartiles and compute the IQR
+    Q25 = np.percentile(Norm_y, 25)
+    Q75 = np.percentile(Norm_y, 75)
+    Norm_IQR = (Q75 - Q25)
+    #calculate sigma-G from IQR
+    sigmaG = .741*Norm_IQR
+    #calculate raw chi2 to compare to chi2dof after outlier rejection
+    chi2R = np.sum((y - y_fit2)**2.0/y_fit2)
+    
+    
     # ZI: we will try to get better chi2dof behavior by adding a systematic
     # error in quadrature to the random errors and clip obviously bad points
     sysErr = 0.02
@@ -89,6 +104,7 @@ for i in range(np.size(ids)):
     nptAllArray[i] = sizeAll
     # the number of degrees of freedom
     noDOF = sizeGood - noMP
+    
     # and now we compute the chi2dof only with plausibly reliable points
     if noDOF > 0: 
         chi2dof = np.sum(weight*chi2rat) / noDOF
@@ -96,18 +112,23 @@ for i in range(np.size(ids)):
         # it can happen that the 4-sigma clipping was too hard (especially in 
         # case of small number of data points, if so, ignore the clipping
         chi2dof = np.sum(chi2rat) / (np.size(y) - noMP)
-
+        
+    
     chi2dofArray[i] = chi2dof
-    print i, chi2dof
-    if chi2dof > 6:
-        noFTterms, chi2dof, mtf = func.iterateFit(i, omega_best, t, y, dy, nptGoodArray, chi2dofArray, nptAllArray, chi2dof)
-        noMP = 2 * noFTterms + 1
+    chi2RArray[i] = chi2R
+    sigmaGArray[i] = sigmaG
+    print i, chi2R, chi2dof, sigmaG
+    
+    #to iterate through number of fit parameters until chi2dof is brought under 6 -CM
+#    if chi2dof > 6:
+#        noFTterms, chi2dof, mtf = func.iterateFit(i, omega_best, t, y, dy, nptGoodArray, chi2dofArray, nptAllArray, chi2dof)
+#        noMP = 2 * noFTterms + 1
     
     ## ZI: here we should add code to save into a file (say, FTcoeffs/ID_FTcoeffs.dat) 
     ##      ID, period, chi2dof, sizeAll, sizeGood, noMP, and FFT eigencoefficients
     #------------------------------------------------------------
     # printing results to file for each object -CM
-    FTcoeffs = [id, period, chi2dof, sizeAll, sizeGood, noMP]
+    FTcoeffs = [id, period, chi2R, chi2dof, sigmaG, sizeAll, sizeGood, noMP]
     FTcoeffs.extend(mtf.w_)
     FTcoeffs = [str(i) for i in FTcoeffs]
 
@@ -139,15 +160,33 @@ for i in range(np.size(ids)):
     ax.set_xlabel('phase')
     
     #save figure to FTplots directory
-    plt.savefig('IterFTplots\\' + str(id) + '_FTplot.png')
+    #plt.savefig('FTplots\\' + str(id) + '_FTplot.png')
     #clear figure for next object
     plt.clf()
 print 'benchmarked at:', time.time() - start, 'seconds'
 
-# quick plot here of chi2dof distribution for sanity check 
-ax = plt.axes()
-hist(chi2dofArray, bins='freedman', ax=ax, histtype='stepfilled', ec='k', fc='#AAAAAA')
-ax.set_xlim(0, 10)
-ax.set_xlabel('chi2dof')
-ax.set_ylabel('dN/dchi2dof')
+plt.plot(np.log(chi2dofArray), np.log(chi2RArray), '.b')
+plt.xlabel('chi2dof')
+plt.ylabel('chi2R')
+plt.title('log(chi2dof) vs. log(chi2R)')
 plt.show()
+
+plt.plot(np.log(chi2dofArray), np.log(sigmaGArray), '.b')
+plt.xlabel('chi2dof')
+plt.ylabel('sigmaG')
+plt.title('log(chi2dof) vs. log(sigmaG)')
+plt.show()
+
+plt.plot(np.log(chi2RArray), np.log(sigmaGArray), '.b')
+plt.xlabel('chi2R')
+plt.ylabel('sigmaG')
+plt.title('log(chi2R) vs. log(sigmaG)')
+plt.show()
+
+# quick plot here of chi2dof distribution for sanity check 
+#ax = plt.axes()
+#hist(chi2dofArray, bins='freedman', ax=ax, histtype='stepfilled', ec='k', fc='#AAAAAA')
+#ax.set_xlim(0, 10)
+#ax.set_xlabel('chi2dof')
+#ax.set_ylabel('dN/dchi2dof')
+#plt.show()
