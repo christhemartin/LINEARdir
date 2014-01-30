@@ -23,7 +23,7 @@ py.show()
 print id_sorted[-100:]
 
 #populate Bad_Fit_Plots with plots of worst fit objects
-#bad_plots(id_sorted[-100:])
+func.bad_plots(id_sorted[-100:])
 
 #how are coefficients correlated to lcType?
-func.correlateCoeffs(allData)
+#func.correlateCoeffs(allData)
