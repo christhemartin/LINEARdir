@@ -359,6 +359,11 @@ def plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, lcType):
         tempIdx = objectIdx[key][0]
         if len(tempIdx) > 3:
             hist(chi2dofArray[tempIdx], bins='freedman', ax=ax1, histtype='stepfilled', ec='k', label = key,  alpha = .6)
+            print key, len(chi2dofArray[tempIdx])
+            if key == 'other':
+                specialFig = plt.figure()
+                specialFig.add_subplot(1,1,1)
+                plt.hist(chi2dofArray[tempIdx], bins = 30)
     ax1.set_xlim(0, 10)
     ax1.set_xlabel('chi2dof')
     ax1.set_ylabel('dN/dchi2dof')

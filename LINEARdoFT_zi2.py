@@ -16,6 +16,7 @@ from astroML.decorators import pickle_results
 from astroML.time_series import search_frequencies, lomb_scargle, MultiTermFit
 from astroML.datasets import fetch_LINEAR_sample
 import time
+import copy
 
 #------------------------------------------------------------
 #1.1 - Data
@@ -48,6 +49,12 @@ ofile = open(resultsfile, 'a')
 #------------------------------------------------------------
 #1.2 - Star Fitting & Metrics
 #------------------------------------------------------------
+#temporary check to investigate if 'other' category is tracking 
+#object with periods < 0, new_lcType is passed to plotting functions
+z_period = list(copy.deepcopy(periods))
+bad_idx = np.where(z_period < 0)
+new_lcType = np.delete(copy.deepcopy(lcType), bad_idx)
+    
 for i in range(np.size(ids)):
     #----1.2.0(data)--------------------------------------------------------
     # this star: 
@@ -92,11 +99,11 @@ for i in range(np.size(ids)):
     #the difference between the data and the model, normalized by the expected error.
     chi = (y - y_fit2)/np.sqrt(dy**2.0 + sysErr**2.0)
     # we will clip deviations at 4 sigma
-    chi2max = 16
+    chimax = 4
     # same-length array as y with values set to 1
     weight = 0*y + 1
     # now flip weight to 0 if a deviant point
-    weight[chi>chi2max] = 0 
+    weight[abs(chi)>chimax] = 0 
     # count all good points
     sizeGood = np.sum(weight) 
     nptGoodArray[i] = sizeGood
@@ -142,23 +149,28 @@ for i in range(np.size(ids)):
 print 'benchmarked at:', time.time() - start, 'seconds'
 
 
+print sum(i > 10 for i in chi2dofArray)
+print sum(i > 10 for i in chi2RArray)
+print sum(i > 10 for i in sigmaGArray)
+
+
 #------------------------------------------------------------------
 #2.0 - Plotting
 #------------------------------------------------------------------
 ##plot 3D scatter of chi2dof, chi2R, and sigmaG
-func.plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType)
+func.plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, new_lcType)
 
 ##plot histogram for each metric, quick check of distributions
 func.plot_metricDists(chi2dofArray, chi2RArray, sigmaGArray)
 
 ##plot 2D scatter-plots correlating each metric to another
-func.plot_2DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType)
+func.plot_2DScatter(chi2dofArray, chi2RArray, sigmaGArray, new_lcType)
 
 ##2D scatter-plots separating each lcType into it's own plot
-func.plot_lcType_scatter(sigmaGArray, chi2dofArray, lcType, 'SigmaG', 'Chi2dof')
+func.plot_lcType_scatter(sigmaGArray, chi2dofArray, new_lcType, 'SigmaG', 'Chi2dof')
 
 #plot distributions for each lcType on top of each other to visualize overlap
-func.plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, lcType)
+func.plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, new_lcType)
 
 plt.show()
 
