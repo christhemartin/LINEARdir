@@ -1,5 +1,5 @@
 '''
-contains auxiliary functions for pltthon scripts in LINEARdir
+contains auxiliary functions for python scripts in LINEARdir
 '''
 import numpy as np
 import os
@@ -387,3 +387,59 @@ def plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, lcType):
     ax3.set_xlim(0, 10)
     ax3.set_xlabel('sigmaG')
     ax3.set_ylabel('dN/dsigmaG')
+
+def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType):
+    '''
+    input: Arrays of the 3 metrics, chi2dof, chi2R and sigmaG, as well as the lcTypes of all objects
+    function: Plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
+    output: n/a
+    '''
+    x = sigmaGArray/chi2dofArray
+    y = chi2RArray/chi2dofArray
+    ra = []
+    rb = []
+    rc = []
+    for i in range(len(x)):
+        if y[i] > .99:
+            ra.append(i)
+        if (x[i] > .9) and (.83 < y[i] < .99):
+            rb.append(i)
+        if (y[i] < -.01 + 1.4*x[i]) and (y[i] < .83):
+            rc.append(i)
+    
+    print 'population of region a:', len(ra)
+    print 'population of region b:', len(rb)
+    print 'population of region c:', len(rc)
+    
+    
+    objectIdx = {}
+    objectIdx['other'] = np.where(lcType == 0)
+    objectIdx['RR_Lyrae_ab'] = np.where(lcType == 1)
+    objectIdx['RR_Lyrae_c'] = np.where(lcType == 2)
+    objectIdx['algol_1'] = np.where(lcType == 3)
+    objectIdx['algol_2'] = np.where(lcType == 4)
+    objectIdx['contact_bin'] = np.where(lcType == 5)
+    objectIdx['DSSP'] = np.where(lcType == 6)
+    objectIdx['LPV'] = np.where(lcType == 7)
+    objectIdx['heartbeat'] = np.where(lcType == 8)
+    objectIdx['BL_hercules'] = np.where(lcType == 9)
+    objectIdx['anom_ceph'] = np.where(lcType == 11)
+    
+    fig = plt.figure()
+    cmap = discretize_cmap(plt.cm.jet, 15)
+    count = 0
+    for key in objectIdx.keys():
+        tempIdx = objectIdx[key][0]
+        if len(tempIdx) > 3:
+            count += 1
+            ratio1 = sigmaGArray[tempIdx]/chi2dofArray[tempIdx]
+            ratio2 = chi2RArray[tempIdx]/chi2dofArray[tempIdx]
+            fig.add_subplot(3,3,count)
+            plt.scatter(ratio1,ratio2, marker ='o', alpha = .7)
+            plt.xlabel('sigmaG/chi2dof')
+            plt.ylabel('chi2R/chi2dof')
+            plt.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+                    zorder=2, alpha = .8)
+            plt.title(str(key) + ' population: ' + str(len(tempIdx)))
+
+    

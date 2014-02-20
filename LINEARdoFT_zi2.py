@@ -49,12 +49,6 @@ ofile = open(resultsfile, 'a')
 #------------------------------------------------------------
 #1.2 - Star Fitting & Metrics
 #------------------------------------------------------------
-#temporary check to investigate if 'other' category is tracking 
-#object with periods < 0, new_lcType is passed to plotting functions
-z_period = list(copy.deepcopy(periods))
-bad_idx = np.where(z_period < 0)
-new_lcType = np.delete(copy.deepcopy(lcType), bad_idx)
-    
 for i in range(np.size(ids)):
     #----1.2.0(data)--------------------------------------------------------
     # this star: 
@@ -146,6 +140,21 @@ for i in range(np.size(ids)):
     #Plot the phased lightcurves with their fit and save to FTplots/ID_FTplot.png -CM
     #func.plot_lcFit(phased_t, y, dy, phase_fit, y_fit, fig, id, omega_best)
 
+#----1.2.5(excluding unwanted subsets)-------------------------------------------
+#removing objects contained in 'other' category, or with periods less than 0.
+z_period = copy.deepcopy(periods)
+badZ = list(np.where(z_period < 0)[0])
+badType = list(np.where(lcType == 0)[0])
+#combine index lists of all unwanted objects
+bad_idx = []
+bad_idx.extend(badZ)
+bad_idx.extend(badType)
+
+lcType = np.delete(copy.deepcopy(lcType), bad_idx)
+chi2dofArray = np.delete(copy.deepcopy(chi2dofArray), bad_idx)
+chi2RArray = np.delete(copy.deepcopy(chi2RArray), bad_idx)
+sigmaGArray = np.delete(copy.deepcopy(sigmaGArray), bad_idx)
+
 print 'benchmarked at:', time.time() - start, 'seconds'
 
 
@@ -157,20 +166,23 @@ print sum(i > 10 for i in sigmaGArray)
 #------------------------------------------------------------------
 #2.0 - Plotting
 #------------------------------------------------------------------
+##plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
+func.plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType)
+
 ##plot 3D scatter of chi2dof, chi2R, and sigmaG
-func.plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, new_lcType)
+#func.plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType)
 
 ##plot histogram for each metric, quick check of distributions
-func.plot_metricDists(chi2dofArray, chi2RArray, sigmaGArray)
+#func.plot_metricDists(chi2dofArray, chi2RArray, sigmaGArray)
 
 ##plot 2D scatter-plots correlating each metric to another
-func.plot_2DScatter(chi2dofArray, chi2RArray, sigmaGArray, new_lcType)
+#func.plot_2DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType)
 
 ##2D scatter-plots separating each lcType into it's own plot
-func.plot_lcType_scatter(sigmaGArray, chi2dofArray, new_lcType, 'SigmaG', 'Chi2dof')
+###func.plot_lcType_scatter(sigmaGArray, chi2dofArray, lcType, 'SigmaG', 'Chi2dof')
 
 #plot distributions for each lcType on top of each other to visualize overlap
-func.plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, new_lcType)
+#func.plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, lcType)
 
 plt.show()
 
