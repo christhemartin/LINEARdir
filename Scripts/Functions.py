@@ -45,18 +45,19 @@ def read_data():
 
 def bad_plots(badObjs):
     '''
-    input: IDs of objects with abnormally high chi2dof
+    input: IDs of objects 
     function: Finds bad objects, copy individual plots, and place them into a separate directory for viewing
     output: n/a
     '''
     od = os.getcwd()
+    print os.listdir(od)
     if od.endswith('\\Scripts'):
         os.chdir('..\\FTplots')
     else:
-        os.chdir('\\FTplots')
+        os.chdir('FTplots')
     for ID in badObjs:
         id = int(ID)
-        shutil.copy(str(id) + '_FTplot.png', '..\\Bad_Fit_Plots')
+        shutil.copy(str(id) + '_FTplot.png', '..\\Regions\Region_A')
         
 def correlateCoeffs(data):
     '''
@@ -388,13 +389,13 @@ def plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, lcType):
     ax3.set_xlabel('sigmaG')
     ax3.set_ylabel('dN/dsigmaG')
 
-def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType):
+def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids):
     '''
     input: Arrays of the 3 metrics, chi2dof, chi2R and sigmaG, as well as the lcTypes of all objects
     function: Plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
     output: n/a
     '''
-    x = sigmaGArray/chi2dofArray
+    x = sigmaGArray/chi2RArray
     y = chi2RArray/chi2dofArray
     ra = []
     rb = []
@@ -404,13 +405,12 @@ def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType):
             ra.append(i)
         if (x[i] > .9) and (.83 < y[i] < .99):
             rb.append(i)
-        if (y[i] < -.01 + 1.4*x[i]) and (y[i] < .83):
+        if (y[i] < -.1 + 1.4*x[i]) and (y[i] < .83):
             rc.append(i)
     
     print 'population of region a:', len(ra)
     print 'population of region b:', len(rb)
     print 'population of region c:', len(rc)
-    
     
     objectIdx = {}
     objectIdx['other'] = np.where(lcType == 0)
@@ -432,14 +432,13 @@ def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType):
         tempIdx = objectIdx[key][0]
         if len(tempIdx) > 3:
             count += 1
-            ratio1 = sigmaGArray[tempIdx]/chi2dofArray[tempIdx]
+            ratio1 = sigmaGArray[tempIdx]/chi2RArray[tempIdx]
             ratio2 = chi2RArray[tempIdx]/chi2dofArray[tempIdx]
             fig.add_subplot(3,3,count)
             plt.scatter(ratio1,ratio2, marker ='o', alpha = .7)
-            plt.xlabel('sigmaG/chi2dof')
+            plt.xlabel('sigmaG/chi2R')
             plt.ylabel('chi2R/chi2dof')
             plt.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
-                    zorder=2, alpha = .8)
+                     zorder=2, alpha = .8)
             plt.title(str(key) + ' population: ' + str(len(tempIdx)))
-
     

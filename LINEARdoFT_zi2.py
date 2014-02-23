@@ -154,6 +154,7 @@ lcType = np.delete(copy.deepcopy(lcType), bad_idx)
 chi2dofArray = np.delete(copy.deepcopy(chi2dofArray), bad_idx)
 chi2RArray = np.delete(copy.deepcopy(chi2RArray), bad_idx)
 sigmaGArray = np.delete(copy.deepcopy(sigmaGArray), bad_idx)
+ids = np.delete(copy.deepcopy(ids), bad_idx)
 
 print 'benchmarked at:', time.time() - start, 'seconds'
 
@@ -162,12 +163,12 @@ print sum(i > 10 for i in chi2dofArray)
 print sum(i > 10 for i in chi2RArray)
 print sum(i > 10 for i in sigmaGArray)
 
-
+print len(ids), len(sigmaGArray)
 #------------------------------------------------------------------
 #2.0 - Plotting
 #------------------------------------------------------------------
 ##plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
-func.plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType)
+func.plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids)
 
 ##plot 3D scatter of chi2dof, chi2R, and sigmaG
 #func.plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType)
