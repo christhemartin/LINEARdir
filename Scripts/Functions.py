@@ -18,7 +18,7 @@ def read_data():
     function: 
     output: 
     '''
-    data = {'id':[], 'period':[], 'chi2dof':[], 'chi2R':[], 'sigmaG':[], 'sizeAll':[], 'sizeGood':[], 'noMP':[], 'coefficients':[]}
+    data = {'id':[], 'period':[], 'chi2dof':[], 'chi2R':[], 'sigmaG':[], 'sizeAll':[], 'sizeGood':[], 'noMP':[], 'lcType':[],  'coefficients':[]}
     od = os.getcwd()
     if od.endswith('\\Scripts'):
         os.chdir('..\\FTcoeffs')
@@ -30,7 +30,6 @@ def read_data():
     lines = f.readlines()
     temp_data = [line.split() for line in lines]
 #    temp_data = np.loadtxt('iterFTcoeffs.dat')
-    print len(temp_data)
     data['id'] = [float(i[0]) for i in temp_data]
     data['period'] = [float(i[1]) for i in temp_data]
     data['chi2R'] = [float(i[2]) for i in temp_data]
@@ -39,14 +38,15 @@ def read_data():
     data['sizeAll'] = [float(i[5]) for i in temp_data]
     data['sizeGood'] = [float(i[6]) for i in temp_data]
     data['noMP'] = [float(i[7]) for i in temp_data]
-    data['coefficients'] = [map(float, i[8:]) for i in temp_data]
+    data['lcType'] = [str(i[8]) for i in temp_data]
+    data['coefficients'] = [map(float, i[9:]) for i in temp_data]
     os.chdir(od)
     return data
 
-def bad_plots(badObjs):
+def save_plots(badObjs):
     '''
     input: IDs of objects 
-    function: Finds bad objects, copy individual plots, and place them into a separate directory for viewing
+    function: Find objects, copy individual plots, and place them into a separate directory for later viewing
     output: n/a
     '''
     od = os.getcwd()
@@ -57,8 +57,23 @@ def bad_plots(badObjs):
         os.chdir('FTplots')
     for ID in badObjs:
         id = int(ID)
-        shutil.copy(str(id) + '_FTplot.png', '..\\Regions\Region_A')
+        shutil.copy(str(id) + '_FTplot.png', '..\\Regions_of_Interest\Contact_Bin')
         
+def convert_lcType(object):
+    '''
+    input: number from 0 - 11 or string of object type, (should exclude 10 as an artifact of PLV_LINEAR.dat! explains placeholder entry for i = 10)
+    function: converts between corresponding ints and strings pr. lcType
+    output: lightcurve type, opposite the input
+    '''
+    if isinstance(object, float):
+        types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algo1_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
+        lcType = types[int(object)]
+    if isinstance(object,str):
+        types = {'Other': 0 , 'RR_Lyrae_ab': 1,'RR_Lyrae_c': 2,'algo1_1': 3,'algol_2': 4,'contact_bin': 5,'DSSP': 6,'LPV': 7,'heartbeat': 8,\
+                 'BL_hercules': 9, 'listed_as_type_10': 10,'anom_ceph': 11}
+        lcType = types[object]
+    return lcType
+
 def correlateCoeffs(data):
     '''
     input: dictionary of data read from coefficients.dat file
@@ -68,28 +83,52 @@ def correlateCoeffs(data):
     od = os.getcwd()
     if od.endswith('\\Scripts'):
         os.chdir('..')
+    #get ids of all object from data file
     objlist = np.loadtxt('PLV_LINEAR.dat.txt')
     ids = objlist[:,0]
     lcType = objlist[:,1]
     
     dataIds = data['id']
     coeffs = data['coefficients']
+    lcTypes = data['lcType']
 
-    positions = [dataIds.index(id) for id in ids]
-    coeffs = [coeffs[i] for i in positions]
-    coeffsDict = {}
-    for paramNum in range(len(coeffs)):
-        tempKey = 'P' + str(paramNum)
-    coeffsDict[tempKey] = [i[0] for i in coeffs]
+    fig = plt.figure()
+    R21 = [coeffs[object][1]/coeffs[object][0] for object in range(len(lcTypes))]
+    R31 = [coeffs[object][2]/coeffs[object][0] for object in range(len(lcTypes))]
+    Phi21 = [coeffs[object][2] - object*coeffs[object][0] for object in range(len(lcTypes))]
+    Phi31 = [coeffs[object][1] - object*coeffs[object][0] for object in range(len(lcTypes))]
 
-    for key in coeffsDict.keys():
-        print key, np.median(coeffsDict[key])
-        ax = plt.figure()
-        plt.title(key)
-        #plt.plot(lcType, coeffsDict[key], '.b')
-        hist(coeffsDict[key], bins='freedman')
-        ax.ylim = [-5,15]
+    color = [convert_lcType(i) for i in lcTypes]
+
+#    fig.add_subplot(3,2,1)
+#    plt.scatter(R21, R31, c = color, marker ='o', alpha = .7)
+#    fig.add_subplot(3,2,2)
+#    plt.scatter(R21, Phi21, c = color, marker ='o', alpha = .7)
+#    fig.add_subplot(3,2,3)
+#    plt.scatter(R21, Phi31, c = color, marker ='o', alpha = .7)
+#    fig.add_subplot(3,2,4)
+#    plt.scatter(R31, Phi21, c = color, marker ='o', alpha = .7)
+#    fig.add_subplot(3,2,5)
+#    plt.scatter(R31, Phi31, c = color, marker ='o', alpha = .7)
+#    fig.add_subplot(3,2,6)
+    plt.scatter(Phi21, Phi31, c = color, marker ='o', alpha = .7)
     plt.show()
+    
+#    positions = [dataIds.index(id) for id in ids]
+#    coeffs = [coeffs[i] for i in positions]
+#    coeffsDict = {}
+#    for paramNum in range(len(coeffs)):
+#        tempKey = 'P' + str(paramNum)
+#    coeffsDict[tempKey] = [i[0] for i in coeffs]
+#
+#    for key in coeffsDict.keys():
+#        print key, np.median(coeffsDict[key])
+#        ax = plt.figure()
+#        plt.title(key)
+#        #plt.plot(lcType, coeffsDict[key], '.b')
+#        hist(coeffsDict[key], bins='freedman')
+#        ax.ylim = [-5,15]
+#    plt.show()
 
 def iterateFit(i, omega_best, t, y, dy, nptGoodArray, chi2dofArray, nptAllArray, chi2dofOld):
     '''
@@ -395,22 +434,33 @@ def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids):
     function: Plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
     output: n/a
     '''
-    x = sigmaGArray/chi2RArray
-    y = chi2RArray/chi2dofArray
-    ra = []
-    rb = []
-    rc = []
-    for i in range(len(x)):
-        if y[i] > .99:
-            ra.append(i)
-        if (x[i] > .9) and (.83 < y[i] < .99):
-            rb.append(i)
-        if (y[i] < -.1 + 1.4*x[i]) and (y[i] < .83):
-            rc.append(i)
+    x = np.array(sigmaGArray/chi2RArray)
+    y = np.array(chi2RArray/chi2dofArray)
+    regions = {}
+    regions['r1'] = np.where(y > .99)[0]
+    regions['r2'] = [i for i in range(len(x)) if (x[i] > 1) and (y[i] < .6)] 
+    regions['r3'] = [i for i in range(len(x)) if (x[i] > 1) and (.6 < y[i] < .99)]
+    regions['r4'] = [i for i in range(len(x)) if (x[i] < 1) and (0 < y[i] < .2)]
+    regions['r5'] = [i for i in range(len(x)) if (x[i] < 1) and (.2 < y[i] < .4)]
+    regions['r6'] = [i for i in range(len(x)) if (x[i] < 1) and (.4 < y[i] < .6)]
+    regions['r7'] = [i for i in range(len(x)) if (x[i] < 1) and (.6 < y[i] < .8)]
+    regions['r8'] = [i for i in range(len(x)) if (x[i] < 1) and (.8 < y[i] < .99)]
     
-    print 'population of region a:', len(ra)
-    print 'population of region b:', len(rb)
-    print 'population of region c:', len(rc)
+    cm = plt.get_cmap('jet')
+    fig = plt.figure()
+    count = 0
+    ax1 = fig.add_subplot(1,1,1)
+    for key in regions.keys():
+        color =  color = cm(1.*float(count)/len(regions.keys()))
+        plt.scatter(x[regions[key]], y[regions[key]], c = color, marker ='o', label = key, alpha = .7)
+        count += 1
+    plt.xlabel('sigmaG/chi2R')
+    plt.ylabel('chi2R/chi2dof')
+    plt.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+             zorder=2, alpha = .8)
+    plt.title('sigmaG/chi2R vs. chi2R/chi2dof')
+    legend1 = ax1.legend(loc='right', ncol=2, shadow=True)
+    
     
     objectIdx = {}
     objectIdx['other'] = np.where(lcType == 0)

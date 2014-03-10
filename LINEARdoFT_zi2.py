@@ -32,6 +32,7 @@ objlist = np.loadtxt('PLV_LINEAR.dat.txt')
 ids = objlist[:,0]
 # Lightcurve type for this star
 lcType = objlist[:,1]
+
 # its period from Paper III (Palaversa et al. 2013) 
 periods = objlist[:,2] 
 chi2dofArray = 0*periods
@@ -53,6 +54,7 @@ for i in range(np.size(ids)):
     #----1.2.0(data)--------------------------------------------------------
     # this star: 
     id = int(ids[i])
+    lc_type = func.convert_lcType(lcType[i])
     period = periods[i]
     if period < 0:
         continue
@@ -128,13 +130,13 @@ for i in range(np.size(ids)):
     print i, chi2R, chi2dof, sigmaG
     
     #----1.2.3(saving data)-------------------------------------------------------- 
-    #printing ID, period, chi2dof, sizeAll, sizeGood, noMP, 
+    #printing ID, period, chi2dof, sizeAll, sizeGood, noMP, lcTpye
     #and FFT eigencoefficients to  FTcoeffs/ID_FTcoeffs.dat for each object -CM
-    FTcoeffs = [id, period, chi2R, chi2dof, sigmaG, sizeAll, sizeGood, noMP]
+    FTcoeffs = [id, period, chi2R, chi2dof, sigmaG, sizeAll, sizeGood, noMP, lc_type]
     FTcoeffs.extend(mtf.w_)
     FTcoeffs = [str(i) for i in FTcoeffs]
 
-    #ofile.write(" ".join(FTcoeffs) + "\n")
+    ofile.write(" ".join(FTcoeffs) + "\n")
     
     #----1.2.4(lightcurve plots)--------------------------------------------------------  
     #Plot the phased lightcurves with their fit and save to FTplots/ID_FTplot.png -CM
@@ -149,25 +151,31 @@ badType = list(np.where(lcType == 0)[0])
 bad_idx = []
 bad_idx.extend(badZ)
 bad_idx.extend(badType)
-
+#make numpy arrays of data without unwanted objects
 lcType = np.delete(copy.deepcopy(lcType), bad_idx)
 chi2dofArray = np.delete(copy.deepcopy(chi2dofArray), bad_idx)
 chi2RArray = np.delete(copy.deepcopy(chi2RArray), bad_idx)
 sigmaGArray = np.delete(copy.deepcopy(sigmaGArray), bad_idx)
 ids = np.delete(copy.deepcopy(ids), bad_idx)
 
+objectIdx = {}
+objectIdx['RR_Lyrae_ab'] = np.where(lcType == 1)
+objectIdx['RR_Lyrae_c'] = np.where(lcType == 2)
+objectIdx['algol_1'] = np.where(lcType == 3)
+objectIdx['algol_2'] = np.where(lcType == 4)
+objectIdx['contact_bin'] = np.where(lcType == 5)
+objectIdx['DSSP'] = np.where(lcType == 6)
+objectIdx['LPV'] = np.where(lcType == 7)
+objectIdx['heartbeat'] = np.where(lcType == 8)
+objectIdx['BL_hercules'] = np.where(lcType == 9)
+objectIdx['anom_ceph'] = np.where(lcType == 11)
+
 print 'benchmarked at:', time.time() - start, 'seconds'
-
-
-print sum(i > 10 for i in chi2dofArray)
-print sum(i > 10 for i in chi2RArray)
-print sum(i > 10 for i in sigmaGArray)
-
-print len(ids), len(sigmaGArray)
 #------------------------------------------------------------------
 #2.0 - Plotting
 #------------------------------------------------------------------
 ##plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
+tpIdx = objectIdx['algol_1']
 func.plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids)
 
 ##plot 3D scatter of chi2dof, chi2R, and sigmaG
