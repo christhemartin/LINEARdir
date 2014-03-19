@@ -29,6 +29,7 @@ def read_data():
     f = open('FTcoeffs.dat', 'r')
     lines = f.readlines()
     temp_data = [line.split() for line in lines]
+
 #    temp_data = np.loadtxt('iterFTcoeffs.dat')
     data['id'] = [float(i[0]) for i in temp_data]
     data['period'] = [float(i[1]) for i in temp_data]
@@ -43,7 +44,7 @@ def read_data():
     os.chdir(od)
     return data
 
-def save_plots(badObjs):
+def save_plots(badObjs, path = ''):
     '''
     input: IDs of objects 
     function: Find objects, copy individual plots, and place them into a separate directory for later viewing
@@ -57,7 +58,8 @@ def save_plots(badObjs):
         os.chdir('FTplots')
     for ID in badObjs:
         id = int(ID)
-        shutil.copy(str(id) + '_FTplot.png', '..\\Regions_of_Interest\Contact_Bin')
+        shutil.copy(str(id) + '_FTplot.png', '..\\Regions_of_Interest\\' + path)
+    os.chdir(od)
         
 def convert_lcType(object):
     '''
@@ -100,17 +102,17 @@ def correlateCoeffs(data):
 
     color = [convert_lcType(i) for i in lcTypes]
 
-#    fig.add_subplot(3,2,1)
-#    plt.scatter(R21, R31, c = color, marker ='o', alpha = .7)
-#    fig.add_subplot(3,2,2)
-#    plt.scatter(R21, Phi21, c = color, marker ='o', alpha = .7)
-#    fig.add_subplot(3,2,3)
-#    plt.scatter(R21, Phi31, c = color, marker ='o', alpha = .7)
-#    fig.add_subplot(3,2,4)
-#    plt.scatter(R31, Phi21, c = color, marker ='o', alpha = .7)
-#    fig.add_subplot(3,2,5)
-#    plt.scatter(R31, Phi31, c = color, marker ='o', alpha = .7)
-#    fig.add_subplot(3,2,6)
+    fig.add_subplot(3,2,1)
+    plt.scatter(R21, R31, c = color, marker ='o', alpha = .7)
+    fig.add_subplot(3,2,2)
+    plt.scatter(R21, Phi21, c = color, marker ='o', alpha = .7)
+    fig.add_subplot(3,2,3)
+    plt.scatter(R21, Phi31, c = color, marker ='o', alpha = .7)
+    fig.add_subplot(3,2,4)
+    plt.scatter(R31, Phi21, c = color, marker ='o', alpha = .7)
+    fig.add_subplot(3,2,5)
+    plt.scatter(R31, Phi31, c = color, marker ='o', alpha = .7)
+    fig.add_subplot(3,2,6)
     plt.scatter(Phi21, Phi31, c = color, marker ='o', alpha = .7)
     plt.show()
     
@@ -437,14 +439,19 @@ def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids):
     x = np.array(sigmaGArray/chi2RArray)
     y = np.array(chi2RArray/chi2dofArray)
     regions = {}
-    regions['r1'] = np.where(y > .99)[0]
-    regions['r2'] = [i for i in range(len(x)) if (x[i] > 1) and (y[i] < .6)] 
-    regions['r3'] = [i for i in range(len(x)) if (x[i] > 1) and (.6 < y[i] < .99)]
-    regions['r4'] = [i for i in range(len(x)) if (x[i] < 1) and (0 < y[i] < .2)]
-    regions['r5'] = [i for i in range(len(x)) if (x[i] < 1) and (.2 < y[i] < .4)]
-    regions['r6'] = [i for i in range(len(x)) if (x[i] < 1) and (.4 < y[i] < .6)]
-    regions['r7'] = [i for i in range(len(x)) if (x[i] < 1) and (.6 < y[i] < .8)]
-    regions['r8'] = [i for i in range(len(x)) if (x[i] < 1) and (.8 < y[i] < .99)]
+    regions['R1'] = np.where(y > .99)[0]
+    regions['R2'] = [i for i in range(len(x)) if (x[i] > 1) and (y[i] < .6)] 
+    regions['R3'] = [i for i in range(len(x)) if (x[i] > 1) and (.6 < y[i] < .99)]
+    regions['R4'] = [i for i in range(len(x)) if (x[i] < 1) and (0 < y[i] < .2)]
+    regions['R5'] = [i for i in range(len(x)) if (x[i] < 1) and (.2 < y[i] < .4)]
+    regions['R6'] = [i for i in range(len(x)) if (x[i] < 1) and (.4 < y[i] < .6)]
+    regions['R7'] = [i for i in range(len(x)) if (x[i] < 1) and (.6 < y[i] < .8)]
+    regions['R8'] = [i for i in range(len(x)) if (x[i] < 1) and (.8 < y[i] < .99)]
+    
+    #option to save plots of objects by type for each sub region
+#    for key in regions.keys():
+#        save_plots(ids[regions[key]], path = 'Contact_Bin\\' + key)
+    
     
     cm = plt.get_cmap('jet')
     fig = plt.figure()
