@@ -11,6 +11,9 @@ from astroML.plotting.tools import discretize_cmap
 from astroML.plotting.tools import discretize_cmap
 from mpl_toolkits.mplot3d import axes3d, Axes3D
 from matplotlib import colors, colorbar
+from sklearn.mixture import GMM
+from astroML.datasets import fetch_sdss_sspp
+from astroML.plotting.tools import draw_ellipse
 
 def read_data():
     '''
@@ -68,10 +71,10 @@ def convert_lcType(object):
     output: lightcurve type, opposite the input
     '''
     if isinstance(object, float):
-        types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algo1_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
+        types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
         lcType = types[int(object)]
     if isinstance(object,str):
-        types = {'Other': 0 , 'RR_Lyrae_ab': 1,'RR_Lyrae_c': 2,'algo1_1': 3,'algol_2': 4,'contact_bin': 5,'DSSP': 6,'LPV': 7,'heartbeat': 8,\
+        types = {'Other': 0 , 'RR_Lyrae_ab': 1,'RR_Lyrae_c': 2,'algol_1': 3,'algol_2': 4,'contact_bin': 5,'DSSP': 6,'LPV': 7,'heartbeat': 8,\
                  'BL_hercules': 9, 'listed_as_type_10': 10,'anom_ceph': 11}
         lcType = types[object]
     return lcType
@@ -85,52 +88,93 @@ def correlateCoeffs(data):
     od = os.getcwd()
     if od.endswith('\\Scripts'):
         os.chdir('..')
-    #get ids of all object from data file
-    objlist = np.loadtxt('PLV_LINEAR.dat.txt')
-    ids = objlist[:,0]
-    lcType = objlist[:,1]
     
     dataIds = data['id']
-    coeffs = data['coefficients']
-    lcTypes = data['lcType']
-
-    fig = plt.figure()
-    R21 = [coeffs[object][1]/coeffs[object][0] for object in range(len(lcTypes))]
-    R31 = [coeffs[object][2]/coeffs[object][0] for object in range(len(lcTypes))]
-    Phi21 = [coeffs[object][2] - object*coeffs[object][0] for object in range(len(lcTypes))]
-    Phi31 = [coeffs[object][1] - object*coeffs[object][0] for object in range(len(lcTypes))]
-
-    color = [convert_lcType(i) for i in lcTypes]
-
-    fig.add_subplot(3,2,1)
-    plt.scatter(R21, R31, c = color, marker ='o', alpha = .7)
-    fig.add_subplot(3,2,2)
-    plt.scatter(R21, Phi21, c = color, marker ='o', alpha = .7)
-    fig.add_subplot(3,2,3)
-    plt.scatter(R21, Phi31, c = color, marker ='o', alpha = .7)
-    fig.add_subplot(3,2,4)
-    plt.scatter(R31, Phi21, c = color, marker ='o', alpha = .7)
-    fig.add_subplot(3,2,5)
-    plt.scatter(R31, Phi31, c = color, marker ='o', alpha = .7)
-    fig.add_subplot(3,2,6)
-    plt.scatter(Phi21, Phi31, c = color, marker ='o', alpha = .7)
-    plt.show()
+    coeffs = np.array(data['coefficients'])
+    lcType = data['lcType']
     
-#    positions = [dataIds.index(id) for id in ids]
-#    coeffs = [coeffs[i] for i in positions]
-#    coeffsDict = {}
-#    for paramNum in range(len(coeffs)):
-#        tempKey = 'P' + str(paramNum)
-#    coeffsDict[tempKey] = [i[0] for i in coeffs]
-#
-#    for key in coeffsDict.keys():
-#        print key, np.median(coeffsDict[key])
-#        ax = plt.figure()
-#        plt.title(key)
-#        #plt.plot(lcType, coeffsDict[key], '.b')
-#        hist(coeffsDict[key], bins='freedman')
-#        ax.ylim = [-5,15]
-#    plt.show()
+    objectIdx = {}
+    objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
+    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
+    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
+    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
+    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
+    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
+    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
+    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
+    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
+    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
+    
+    
+    #plt.suptitle('Relative Fourier Parameters')
+    cm = plt.get_cmap('jet')
+    count = 0
+    for key in objectIdx.keys():
+        
+        tpIdx = objectIdx[key]
+        coeffs1 = coeffs[tpIdx]
+        
+        A1 = np.array([np.sqrt(object[7]**2.0 + object[1]**2.0) for object in coeffs1])
+        A2 = np.array([np.sqrt(object[8]**2.0 + object[2]**2.0) for object in coeffs1])
+        A3 = np.array([np.sqrt(object[9]**2.0 + object[3]**2.0) for object in coeffs1])
+        Phi1 = np.array([np.arctan(-object[1]/object[7]) for object in coeffs1])
+        Phi2 = np.array([np.arctan(-object[2]/object[8]) for object in coeffs1])
+        Phi3 = np.array([np.arctan(-object[3]/object[9]) for object in coeffs1])
+        
+
+    #    plt.title(key)
+        R21 = A2/A1
+        R31 = A3/A1
+        Phi21 = Phi2 - 2.0*Phi1
+        Phi31 = Phi3 - 3.0*Phi3
+        
+        #testing GMM
+        if key =='RR_Lyrae_c':
+            X = np.array([R31,Phi21]).T
+            gaussian_mixture_model(X)
+        
+        fig = plt.figure()
+        plt.suptitle('Relative Fourier Parameters - ' + key)
+        color = cm(1.*float(count)/len(objectIdx.keys()))
+    
+        ax1 = fig.add_subplot(3,2,1)
+        plt.scatter(R21, R31, c = color, marker ='o', alpha = .7, label = key)
+        plt.title('R21 vs R31')
+        plt.xlabel('R21')
+        plt.ylabel('R31')
+        #legend1 = ax1.legend(loc='right', ncol=2, shadow=True)
+        
+        fig.add_subplot(3,2,2)
+        plt.scatter(R21, Phi21, c = color, marker ='o', alpha = .7)
+        plt.title('R21 vs. Phi21')
+        plt.xlabel('R21')
+        plt.ylabel('Phi21')
+        
+        fig.add_subplot(3,2,3)
+        plt.scatter(R21, Phi31, c = color, marker ='o', alpha = .7)
+        plt.title('R21 vs. Phi31')
+        plt.xlabel('R21')
+        plt.ylabel('Phi31')
+        
+        fig.add_subplot(3,2,4)
+        plt.scatter(R31, Phi21, c = color, marker ='o', alpha = .7)
+        plt.title('R31 vs. Phi21')
+        plt.xlabel('R31')
+        plt.ylabel('Phi21')
+        
+        fig.add_subplot(3,2,5)
+        plt.scatter(R31, Phi31, c = color, marker ='o', alpha = .7)
+        plt.title('R31 vs Phi31')
+        plt.xlabel('R31')
+        plt.ylabel('Phi31')
+        
+        fig.add_subplot(3,2,6)
+        plt.scatter(Phi21, Phi31, c = color, marker ='o', alpha = .7)
+        plt.title('Phi21 vs Phi31')
+        plt.xlabel('Phi21')
+        plt.ylabel('Phi31')
+        count += 1
+    plt.show()
 
 def iterateFit(i, omega_best, t, y, dy, nptGoodArray, chi2dofArray, nptAllArray, chi2dofOld):
     '''
@@ -458,7 +502,7 @@ def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids):
     count = 0
     ax1 = fig.add_subplot(1,1,1)
     for key in regions.keys():
-        color =  color = cm(1.*float(count)/len(regions.keys()))
+        color = cm(1.*float(count)/len(regions.keys()))
         plt.scatter(x[regions[key]], y[regions[key]], c = color, marker ='o', label = key, alpha = .7)
         count += 1
     plt.xlabel('sigmaG/chi2R')
@@ -498,4 +542,73 @@ def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids):
             plt.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
                      zorder=2, alpha = .8)
             plt.title(str(key) + ' population: ' + str(len(tempIdx)))
+  
+def gaussian_mixture_model(X):  
+    #------------------------------------------------------------
+    # Compute GMM models & AIC/BIC
+    N = np.arange(1, 14)
+    
+    def compute_GMM(N, covariance_type='full', n_iter=1000):
+        models = [None for n in N]
+        for i in range(len(N)):
+            print N[i]
+            models[i] = GMM(n_components=N[i], n_iter=n_iter,
+                            covariance_type=covariance_type)
+            models[i].fit(X)
+        return models
+    
+    models = compute_GMM(N)
+    
+    AIC = [m.aic(X) for m in models]
+    BIC = [m.bic(X) for m in models]
+    
+    i_best = np.argmin(BIC)
+    gmm_best = models[i_best]
+    print "best fit converged:", gmm_best.converged_
+    print "BIC: n_components =  %i" % N[i_best]
+    
+    
+    x_flat = np.r_[X[:,0].min():X[:,0].max():128j]
+    
+    #------------------------------------------------------------
+    # Plot the results
+    fig = plt.figure(figsize=(5, 1.66))
+    fig.subplots_adjust(wspace=0.45,
+                        bottom=0.25, top=0.9,
+                        left=0.1, right=0.97)
+    
+    # plot density
+    ax = fig.add_subplot(131)
+    ax.set_xlabel('')
+    ax.set_ylabel('')
+    ax.plot(X[:,0], X[:,1], '.b')
+    ax.xaxis.set_major_locator(plt.MultipleLocator(0.3))
+    ax.set_xlim(np.min(X[:,0]), np.max(X[:,0]))
+    ax.set_ylim(np.min(X[:,1]), np.max(X[:,1]))
+    ax.text(0.93, 0.93, "Input",
+            va='top', ha='right', transform=ax.transAxes)
+    
+    # plot AIC/BIC
+    ax = fig.add_subplot(132)
+    ax.plot(N, AIC, '-k', label='AIC')
+    ax.plot(N, BIC, ':k', label='BIC')
+    ax.legend(loc=1)
+    ax.set_xlabel('N components')
+    plt.setp(ax.get_yticklabels(), fontsize=7)
+    
+    # plot best configurations for AIC and BIC
+    ax = fig.add_subplot(133)
+    ax.plot(X[:,0], X[:,1], '.b')
+    ax.scatter(gmm_best.means_[:, 0], gmm_best.means_[:, 1], c='w')
+    for mu, C, w in zip(gmm_best.means_, gmm_best.covars_, gmm_best.weights_):
+        draw_ellipse(mu, C, scales=[1.5], ax=ax, fc='none', ec='k')
+    
+    ax.text(0.93, 0.93, "Converged",
+            va='top', ha='right', transform=ax.transAxes)
+    
+    ax.set_xlim(np.min(X[:,0]), np.max(X[:,0]))
+    ax.set_ylim(np.min(X[:,1]), np.max(X[:,1]))
+    ax.xaxis.set_major_locator(plt.MultipleLocator(0.3))
+    ax.set_xlabel('')
+    ax.set_ylabel('')
     

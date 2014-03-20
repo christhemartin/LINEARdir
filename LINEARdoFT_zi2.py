@@ -136,7 +136,7 @@ for i in range(np.size(ids)):
     FTcoeffs.extend(mtf.w_)
     FTcoeffs = [str(i) for i in FTcoeffs]
 
-    #ofile.write(" ".join(FTcoeffs) + "\n")
+    ofile.write(" ".join(FTcoeffs) + "\n")
     
     #----1.2.4(lightcurve plots)--------------------------------------------------------  
     #Plot the phased lightcurves with their fit and save to FTplots/ID_FTplot.png -CM
@@ -176,7 +176,8 @@ print 'benchmarked at:', time.time() - start, 'seconds'
 #------------------------------------------------------------------
 ##plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
 tpIdx = objectIdx['contact_bin']
-func.plot_ratios(chi2dofArray[tpIdx], chi2RArray[tpIdx], sigmaGArray[tpIdx], lcType[tpIdx], ids[tpIdx])
+print tpIdx
+#func.plot_ratios(chi2dofArray[tpIdx], chi2RArray[tpIdx], sigmaGArray[tpIdx], lcType[tpIdx], ids[tpIdx])
 
 ##plot 3D scatter of chi2dof, chi2R, and sigmaG
 #func.plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType)
