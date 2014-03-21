@@ -1,7 +1,4 @@
-"""
-Compute FT coefficients for all LINEAR light curves from Paper III
--------------------------
-"""
+# Compute FT coefficients for all LINEAR light curves from Paper III
 # Modeled after http://www.astroml.org/book_figures/chapter10/fig_LINEAR_LS.html
 # License: BSD
 #------------------------------------------------------------
@@ -51,7 +48,7 @@ ofile = open(resultsfile, 'a')
 #1.2 - Star Fitting & Metrics
 #------------------------------------------------------------
 for i in range(np.size(ids)):
-    #----1.2.0(data)--------------------------------------------------------
+    #----1.2.0(data)------------------------------
     # this star: 
     id = int(ids[i])
     lc_type = func.convert_lcType(lcType[i])
@@ -67,7 +64,7 @@ for i in range(np.size(ids)):
     y = data[:,1]
     dy = data[:,2]
 
-    #----1.2.1(fitting)--------------------------------------------------------
+    #----1.2.1(fitting)----------------------------
     # best-fit angular frequency
     omega_best = 2 * 3.14159 / period
     print "working on LINEAR ID=", id, " omega_0 = %.10g" % omega_best
@@ -88,7 +85,7 @@ for i in range(np.size(ids)):
     # ZI: the number of model parameters is: 
     noMP = 2 * noFTterms + 1
     
-    #----1.2.2(fit evaluation metrics)---------------------------------------------
+    #----1.2.2(fit evaluation metrics)---------------
     # ZI: we will try to get better chi2dof behavior by adding a systematic
     # error in quadrature to the random errors and clip obviously bad points
     sysErr = 0.02
@@ -129,20 +126,20 @@ for i in range(np.size(ids)):
     sigmaGArray[i] = sigmaG
     print i, chi2R, chi2dof, sigmaG
     
-    #----1.2.3(saving data)-------------------------------------------------------- 
+    #----1.2.3(saving data)--------------------------- 
     #printing ID, period, chi2dof, sizeAll, sizeGood, noMP, lcTpye
     #and FFT eigencoefficients to  FTcoeffs/ID_FTcoeffs.dat for each object -CM
     FTcoeffs = [id, period, chi2R, chi2dof, sigmaG, sizeAll, sizeGood, noMP, lc_type]
     FTcoeffs.extend(mtf.w_)
     FTcoeffs = [str(i) for i in FTcoeffs]
 
-    ofile.write(" ".join(FTcoeffs) + "\n")
+    #ofile.write(" ".join(FTcoeffs) + "\n")
     
-    #----1.2.4(lightcurve plots)--------------------------------------------------------  
+    #----1.2.4(lightcurve plots)---------------------- 
     #Plot the phased lightcurves with their fit and save to FTplots/ID_FTplot.png -CM
     #func.plot_lcFit(phased_t, y, dy, phase_fit, y_fit, fig, id, omega_best)
 
-#----1.2.5(excluding unwanted subsets)-------------------------------------------
+#----1.2.5(excluding unwanted subsets)-------
 #removing objects contained in 'other' category, or with periods less than 0.
 z_period = copy.deepcopy(periods)
 badZ = list(np.where(z_period < 0)[0])
@@ -159,25 +156,18 @@ sigmaGArray = np.delete(copy.deepcopy(sigmaGArray), bad_idx)
 ids = np.delete(copy.deepcopy(ids), bad_idx)
 
 objectIdx = {}
-objectIdx['RR_Lyrae_ab'] = np.where(lcType == 1)
-objectIdx['RR_Lyrae_c'] = np.where(lcType == 2)
-objectIdx['algol_1'] = np.where(lcType == 3)
-objectIdx['algol_2'] = np.where(lcType == 4)
-objectIdx['contact_bin'] = np.where(lcType == 5)
-objectIdx['DSSP'] = np.where(lcType == 6)
-objectIdx['LPV'] = np.where(lcType == 7)
-objectIdx['heartbeat'] = np.where(lcType == 8)
-objectIdx['BL_hercules'] = np.where(lcType == 9)
-objectIdx['anom_ceph'] = np.where(lcType == 11)
+lcTypeStrings = ['RR_Lyrae_ab','RR_Lyrae_c', 'algol_1', 'algol_2', 'contact_bin', 'DSSP', 'LPV', 'heartbeat', 'BL_hercules', 'anom_ceph']
+lcTypeNums = [1,2,3,4,5,6,7,8,9,11]
+for i in range(len(lcTypeStrings)):
+    objectIdx[lcTypeStrings[i]] = np.where(lcType == lcTypeNums[i])
 
 print 'benchmarked at:', time.time() - start, 'seconds'
 #------------------------------------------------------------------
 #2.0 - Plotting
 #------------------------------------------------------------------
 ##plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
-tpIdx = objectIdx['contact_bin']
-print tpIdx
-#func.plot_ratios(chi2dofArray[tpIdx], chi2RArray[tpIdx], sigmaGArray[tpIdx], lcType[tpIdx], ids[tpIdx])
+tpIdx = objectIdx['anom_ceph']
+func.plot_ratios(chi2dofArray[tpIdx], chi2RArray[tpIdx], sigmaGArray[tpIdx], lcType[tpIdx], ids[tpIdx])
 
 ##plot 3D scatter of chi2dof, chi2R, and sigmaG
 #func.plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType)

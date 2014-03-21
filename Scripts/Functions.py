@@ -14,12 +14,22 @@ from matplotlib import colors, colorbar
 from sklearn.mixture import GMM
 from astroML.datasets import fetch_sdss_sspp
 from astroML.plotting.tools import draw_ellipse
+from astroML.utils import split_samples
+from astroML.utils import completeness_contamination
+from sklearn.neighbors import KNeighborsClassifier
 
 def read_data():
     '''
-    input: n/a
-    function: 
-    output: 
+    Parameters
+    ---------- 
+    input : 
+        n/a
+    
+    Returns
+    -------
+    data : dict
+        dictionary of object features
+    
     '''
     data = {'id':[], 'period':[], 'chi2dof':[], 'chi2R':[], 'sigmaG':[], 'sizeAll':[], 'sizeGood':[], 'noMP':[], 'lcType':[],  'coefficients':[]}
     od = os.getcwd()
@@ -48,10 +58,17 @@ def read_data():
     return data
 
 def save_plots(badObjs, path = ''):
-    '''
-    input: IDs of objects 
-    function: Find objects, copy individual plots, and place them into a separate directory for later viewing
-    output: n/a
+    '''Find objects, copy individual plots, and place them into a separate directory for later viewing
+    
+    Parameters
+    ----------
+    badObjs : array_like
+        IDs of objects 
+ 
+    Returns
+    -------
+    output: 
+        n/a
     '''
     od = os.getcwd()
     print os.listdir(od)
@@ -65,10 +82,17 @@ def save_plots(badObjs, path = ''):
     os.chdir(od)
         
 def convert_lcType(object):
-    '''
-    input: number from 0 - 11 or string of object type, (should exclude 10 as an artifact of PLV_LINEAR.dat! explains placeholder entry for i = 10)
-    function: converts between corresponding ints and strings pr. lcType
-    output: lightcurve type, opposite the input
+    '''converts between corresponding ints and strings pr. lcType
+    
+    Parameters
+    ---------- 
+    object : int or string
+        number from 0 - 11 or string of object type, (should exclude 10 as an artifact of PLV_LINEAR.dat! explains placeholder entry for i = 10)
+    
+    Returns
+    -------
+    lcType : string or int
+        number from 0 - 11 or string of object type, (opposite the input)
     '''
     if isinstance(object, float):
         types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
@@ -79,169 +103,234 @@ def convert_lcType(object):
         lcType = types[object]
     return lcType
 
-def correlateCoeffs(data):
-    '''
-    input: dictionary of data read from coefficients.dat file
-    function: read in data on lcType and match to objects, plotting lcType against model parameters
-    output: n/a
+def ComputeRFP(data):
+    '''for each object, use coefficients from Fourier transform to calculate various relative fourier parameters.
+    
+    Parameters
+    ---------- 
+    data : dict
+        data read from coefficients.dat file
+    
+    Returns
+    -------
+    RFP : dict
+        dictionary of all computed relative fourier parameters
     '''
     od = os.getcwd()
     if od.endswith('\\Scripts'):
         os.chdir('..')
     
-    dataIds = data['id']
     coeffs = np.array(data['coefficients'])
-    lcType = data['lcType']
     
+    A1 = np.array([np.sqrt(object[7]**2.0 + object[1]**2.0) for object in coeffs])
+    A2 = np.array([np.sqrt(object[8]**2.0 + object[2]**2.0) for object in coeffs])
+    A3 = np.array([np.sqrt(object[9]**2.0 + object[3]**2.0) for object in coeffs])
+    
+    Phi1 = np.array([np.arctan(-object[1]/object[7]) for object in coeffs])%1
+    Phi2 = np.array([np.arctan(-object[2]/object[8]) for object in coeffs])%1
+    Phi3 = np.array([np.arctan(-object[3]/object[9]) for object in coeffs])%1
+    
+    RFP = {}
+    RFP['R21'] = A2/A1
+    RFP['R31'] = A3/A1
+    RFP['Phi21'] = Phi2 - 2.0*Phi1
+    RFP['Phi31'] = Phi3 - 3.0*Phi1
+    
+    return RFP
+
+def plotRFP(RFP, lcType):
+    '''plots all combinations of the relative fourier parameters across lcTypes
+    Parameters
+    ---------- 
+    RFP : dict
+        dictionary of all computed relative fourier parameters
+    lcType : array_like
+        contains strings of object types
+    
+    Returns
+    -------
+    output:
+        n/a
+    '''
+
     objectIdx = {}
     objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
     objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
-    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
+#    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
     objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
     objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
-    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
-    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
-    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
-    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
-    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
+#    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
+#    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
+#    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
+#    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
+#    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
     
-    
-    #plt.suptitle('Relative Fourier Parameters')
-    cm = plt.get_cmap('jet')
     count = 0
+#    fig = plt.figure()
+#    plt.suptitle('Relative Fourier Parameters')
     for key in objectIdx.keys():
+        idx = objectIdx[key]
         
-        tpIdx = objectIdx[key]
-        coeffs1 = coeffs[tpIdx]
-        
-        A1 = np.array([np.sqrt(object[7]**2.0 + object[1]**2.0) for object in coeffs1])
-        A2 = np.array([np.sqrt(object[8]**2.0 + object[2]**2.0) for object in coeffs1])
-        A3 = np.array([np.sqrt(object[9]**2.0 + object[3]**2.0) for object in coeffs1])
-        Phi1 = np.array([np.arctan(-object[1]/object[7]) for object in coeffs1])
-        Phi2 = np.array([np.arctan(-object[2]/object[8]) for object in coeffs1])
-        Phi3 = np.array([np.arctan(-object[3]/object[9]) for object in coeffs1])
-        
-
-    #    plt.title(key)
-        R21 = A2/A1
-        R31 = A3/A1
-        Phi21 = Phi2 - 2.0*Phi1
-        Phi31 = Phi3 - 3.0*Phi3
-        
-        #testing GMM
-        if key =='RR_Lyrae_c':
-            X = np.array([R31,Phi21]).T
-            gaussian_mixture_model(X)
-        
+        cm = plt.get_cmap('jet')
+            
         fig = plt.figure()
         plt.suptitle('Relative Fourier Parameters - ' + key)
         color = cm(1.*float(count)/len(objectIdx.keys()))
-    
+
         ax1 = fig.add_subplot(3,2,1)
-        plt.scatter(R21, R31, c = color, marker ='o', alpha = .7, label = key)
-        plt.title('R21 vs R31')
-        plt.xlabel('R21')
-        plt.ylabel('R31')
-        #legend1 = ax1.legend(loc='right', ncol=2, shadow=True)
+        ax1.scatter(np.log(RFP['R21'][idx]), np.log(RFP['R31'][idx]), c = color, marker ='o', alpha = .7)
+        ax1.set_ylim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
+        ax1.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+        ax1.set_title('R21 vs R31')
+        ax1.set_xlabel('R21')
+        ax1.set_ylabel('R31')
         
-        fig.add_subplot(3,2,2)
-        plt.scatter(R21, Phi21, c = color, marker ='o', alpha = .7)
-        plt.title('R21 vs. Phi21')
-        plt.xlabel('R21')
-        plt.ylabel('Phi21')
+        ax2 = fig.add_subplot(3,2,2)
+        ax2.scatter(np.log(RFP['R21'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7)
+        ax2.set_ylim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
+        ax2.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+        ax2.set_title('R21 vs. Phi21')
+        ax2.set_xlabel('R21')
+        ax2.set_ylabel('Phi21')
         
-        fig.add_subplot(3,2,3)
-        plt.scatter(R21, Phi31, c = color, marker ='o', alpha = .7)
-        plt.title('R21 vs. Phi31')
-        plt.xlabel('R21')
-        plt.ylabel('Phi31')
+        ax3 = fig.add_subplot(3,2,3)
+        ax3.scatter(np.log(RFP['R21'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
+        ax3.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
+        ax3.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+        ax3.set_title('R21 vs. Phi31')
+        ax3.set_xlabel('R21')
+        ax3.set_ylabel('Phi31')
         
-        fig.add_subplot(3,2,4)
-        plt.scatter(R31, Phi21, c = color, marker ='o', alpha = .7)
-        plt.title('R31 vs. Phi21')
-        plt.xlabel('R31')
-        plt.ylabel('Phi21')
+        ax4 = fig.add_subplot(3,2,4)
+        ax4.scatter(np.log(RFP['R31'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7)
+        ax4.set_ylim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
+        ax4.set_xlim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
+        ax4.set_title('R31 vs. Phi21')
+        ax4.set_xlabel('R31')
+        ax4.set_ylabel('Phi21')
         
-        fig.add_subplot(3,2,5)
-        plt.scatter(R31, Phi31, c = color, marker ='o', alpha = .7)
-        plt.title('R31 vs Phi31')
-        plt.xlabel('R31')
-        plt.ylabel('Phi31')
+        ax5 = fig.add_subplot(3,2,5)
+        ax5.scatter(np.log(RFP['R31'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
+        ax5.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
+        ax5.set_xlim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
+        ax5.set_title('R31 vs Phi31')
+        ax5.set_xlabel('R31')
+        ax5.set_ylabel('Phi31')
         
-        fig.add_subplot(3,2,6)
-        plt.scatter(Phi21, Phi31, c = color, marker ='o', alpha = .7)
-        plt.title('Phi21 vs Phi31')
-        plt.xlabel('Phi21')
-        plt.ylabel('Phi31')
+        ax6 = fig.add_subplot(3,2,6)
+        ax6.scatter(RFP['Phi21'][idx], RFP['Phi31'][idx], c = color, marker ='o', alpha = .7, label = key)
+        ax6.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
+        ax6.set_xlim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
+        ax6.set_title('Phi21 vs Phi31')
+        ax6.set_xlabel('Phi21')
+        ax6.set_ylabel('Phi31')
+        legend6 = ax6.legend(loc='lower right', ncol=1, shadow=True)
         count += 1
     plt.show()
 
-def iterateFit(i, omega_best, t, y, dy, nptGoodArray, chi2dofArray, nptAllArray, chi2dofOld):
+def plotRFP_vs_P(RFP, P, lcType):
+    '''plots period vs relative fourier parameters across lcTypes
+    Parameters
+    ---------- 
+    RFP : dict
+        dictionary of all computed relative fourier parameters
+    P : array_like
+        periods of objects
+    lcType : array_like
+        contains strings of object types
+    
+    Returns
+    -------
+    output:
+        n/a
     '''
-    depracated side project to iterate fit across numper of model parameters until chi2 is brought under threshold of 6
-    '''
-    print "############### - Re-fitting - ################"
-    chi2dof = highest = chi2dofOld
-    noFTterms = 6
-    operation = True
-    while chi2dof > 6:
-        print noFTterms, chi2dof, chi2dofOld
-        if chi2dof > highest:
-            highest = chi2dof
-            operation = not operation 
-        if operation == True:
-            noFTterms +=2
-        if operation == False:
-            noFTterms -=2
+    P = np.array(P)
+    objectIdx = {}
+    objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
+    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
+#    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
+    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
+    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
+#    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
+#    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
+#    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
+#    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
+#    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
+    
+    count = 0
+    fig = plt.figure()
+    plt.suptitle('Relative Fourier Parameters vs. Period')
+    for key in objectIdx.keys():
+        idx = objectIdx[key]
         
-        chi2dofOld = chi2dof
+        cm = plt.get_cmap('jet')
+            
+#        fig = plt.figure()
+#        plt.suptitle('Relative Fourier Parameters - ' + key)
+        color = cm(1.*float(count)/len(objectIdx.keys()))
         
-        mtf = MultiTermFit(omega_best, noFTterms)
-        mtf.fit(t, y, dy)
-        phase_fit, y_fit, phased_t = mtf.predict(1000, return_phased_times=True)
+        ax1 = fig.add_subplot(2,2,1)
+        ax1.scatter(np.log(RFP['R21'][idx]), np.log(P[idx]), c = color, marker ='o', alpha = .7, label = key)
+        legend1 = ax1.legend(loc='upper left', ncol=1, shadow=True)
+        ax1.set_ylabel('log(Period)')
+        ax1.set_xlabel('log(R21)')
+        ax1.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+            zorder=2, alpha = .8)
+        
+        ax2 = fig.add_subplot(2,2,2)
+        ax2.scatter(np.log(RFP['R31'][idx]), np.log(P[idx]), c = color, marker ='o', alpha = .7)
+        ax2.set_ylabel('log(Period)')
+        ax2.set_xlabel('log(R31)')
+        ax2.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+            zorder=2, alpha = .8)
+        
+        ax3 = fig.add_subplot(2,2,3)
+        ax3.scatter(RFP['Phi21'][idx], np.log(P[idx]), c = color, marker ='o', alpha = .7)
+        ax3.set_ylabel('log(Period)')
+        ax3.set_xlabel('log(Phi21)')
+        ax3.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+            zorder=2, alpha = .8)
+        
+        ax4 = fig.add_subplot(2,2,4)
+        ax4.scatter(RFP['Phi31'][idx], np.log(P[idx]), c = color, marker ='o', alpha = .7)
+        ax4.set_ylabel('log(Period)')
+        ax4.set_xlabel('log(Phi31)')
+        ax4.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+            zorder=2, alpha = .8)
+        
+        count += 1
     
-        ### chi^2 calculated from direct comparison of fit to data -Ben
-        # create fit data that can directly compare to datapoints -Ben
-        y_fit2 = np.dot(mtf._make_X(t), mtf.w_)  
-        # ZI: the number of model parameters is: 
-        noMP = 2 * noFTterms + 1
-        # ZI: we will try to get better chi2dof behavior by adding a systematic
-        # error in quadrature to the random errors and clip obviously bad points
-        sysErr = 0.02
-        chi2rat = (y - y_fit2)**2.0 / (dy**2. + sysErr**2.)
-        # we will clip deviations at 4 sigma
-        chi2max = 16 
-        # same-length array as y with values set to 1
-        weight = 0*y + 1
-        # now flip weight to 0 if a deviant point
-        weight[chi2rat>chi2max] = 0 
-        # count all good points
-        sizeGood = np.sum(weight) 
-        nptGoodArray[i] = sizeGood
-        sizeAll = np.size(y)
-        nptAllArray[i] = sizeAll
-        # the number of degrees of freedom
-        noDOF = sizeGood - noMP
-        # and now we compute the chi2dof only with plausibly reliable points
-        if noDOF > 0: 
-            chi2dof = np.sum(weight*chi2rat) / noDOF
-        else: 
-            # it can happen that the 4-sigma clipping was too hard (especially in 
-            # case of small number of data points, if so, ignore the clipping
-            chi2dof = np.sum(chi2rat) / (np.size(y) - noMP)
-    
-        chi2dofArray[i] = chi2dof
-    
-    print noFTterms, chi2dof, chi2dofOld
-    print "############### - End of iterations - ################"
-    return noFTterms, chi2dof, mtf
+    plt.show()
 
 def plot_lcFit(phased_t, y, dy, phase_fit, y_fit, fig, id, omega_best):
     '''
-    input: Array of times corresponding to phase folded flux data(phased_t), flux data from star (y), error in flux (dy), 
-            time array corresponding to phase folded fit data (phase_fit), fit data (y_fit).
+    input: 
     function: Create a plot of an individual star's lightcurve with errorbars and our fit, phase folded to best fir period. 
     output: n/a
+    
+    Parameters
+    ---------- 
+        Phased_t : array_like
+            array of times corresponding to phase folded flux data
+        y : array_like
+            flux data from star
+        dy : array_like
+            error in flux
+        phase_fit : array_like
+            time array corresponding to phase folded fit data
+        y_fit : array_like
+            fit of data
+        fig : 
+            current plot frame
+        id : 
+            id number of object
+        omega_best : float
+            best estimate of omega
+            
+    Returns
+    -------
+    output:
+        n/a
     '''
     ax = fig.add_subplot(111)
     ax.errorbar(phased_t, y, dy, fmt='.k', ecolor='gray', 
@@ -270,10 +359,25 @@ def plot_lcFit(phased_t, y, dy, phase_fit, y_fit, fig, id, omega_best):
     plt.clf()
 
 def plot_lcType_scatter(xData, yData, lcType, xName, yName):
-    '''
-    input: Arrays to be plotted against each other (xData,yData), usually chi2dof/chi2R/sigmaG. Strings of their names to identify plots (xName,yName).
-    function: To plot separately, different lcTypes for one metric vs. another. 
-    output: n/a
+    '''To plot separately, different lcTypes for one metric vs. another. Could be any of chi2dof/chi2R/sigmaG.
+    input: Arrays to be plotted against each other (xData,yData), Strings of their names to identify plots (xName,yName).
+    Parameters
+    ---------- 
+    xData : array_like
+        data to be plotted on x-axis
+    yData : array_like
+        data to be plotted on y-axis
+    lcType : array_like
+        list of integers corresponding to object type
+    xName : str
+        label for variable plotted on x-axis
+    yName : str
+        label for variable plotted on y-axis
+    
+    Returns
+    -------
+    output:
+        n/a
     '''
     fig = plt.figure()
     fig.suptitle(xName + ' Vs. ' + yName + ' across lcTypes')
@@ -342,10 +446,22 @@ def plot_lcType_scatter(xData, yData, lcType, xName, yName):
     axk.set_title('Anomalous Cepheid')
 
 def plot_2DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType):
-    '''
-    input: Arrays of the 3 metrics, chi2dof, chi2R and sigmaG, as well as the lcTypes of all objects
-    function: Plot each metric vs. another in a 2D scatter with colors representing lcType
-    output: n/a
+    '''Plot each metric vs. another in a 2D scatter with colors representing lcType
+    Parameters
+    ---------- 
+    chi2dofArray : array_like
+        contains calculated chi2 pr. degree of freedom values
+    chi2RArray : array_like
+        contains calculated robust chi2 values
+    sigmaGArray : array_like
+        contains calulated values of sigmaG
+    lcType : array_like
+        list of integers corresponding to object type 
+    
+    Returns
+    -------
+    output:
+        n/a
     '''
     fig = plt.figure()
     # Set up color-map properties
@@ -384,10 +500,22 @@ def plot_2DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType):
                      format=formatter)
     
 def plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType):
-    '''
-    input: Arrays of the 3 metrics, chi2dof, chi2R and sigmaG, as well as the lcTypes of all objects
-    function: Create a 3D scatter plot of the metric space, coloring points according to lcType
-    output: n/a
+    '''Create a 3D scatter plot of the metric space, coloring points according to lcType
+    Parameters
+    ---------- 
+    chi2dofArray : array_like
+        contains calculated chi2 pr. degree of freedom values
+    chi2RArray : array_like
+        contains calculated robust chi2 values
+    sigmaGArray : array_like
+        contains calulated values of sigmaG
+    lcType : array_like
+        list of integers corresponding to object type 
+        
+    Returns
+    -------
+    output: 
+        n/a
     '''
     fig = plt.figure()
     fig.suptitle('Metric Space for chi2dof, chi2R & sigmaG')
@@ -398,10 +526,20 @@ def plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType):
     ax.set_zlabel('sigmaG')
     
 def plot_metricDists(chi2dofArray, chi2RArray, sigmaGArray):
-    '''
-    input: Arrays of the 3 metrics, chi2dof, chi2R and sigmaG
-    function: Create a histogram of the distribution for each metric
-    output: n/a
+    '''Create a histogram of the distribution for each metric
+    Parameters
+    ----------
+    chi2dofArray : array_like
+        contains calculated chi2 pr. degree of freedom values
+    chi2RArray : array_like
+        contains calculated robust chi2 values
+    sigmaGArray : array_like
+        contains calulated values of sigmaG
+    
+    Returns
+    -------
+    output: 
+        n/a
     '''
     fig = plt.figure()
     ax1 = fig.add_subplot(3,1,1)
@@ -421,10 +559,22 @@ def plot_metricDists(chi2dofArray, chi2RArray, sigmaGArray):
     ax3.set_ylabel('dN/dsigmaG')
      
 def plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, lcType):
-    '''
-    input: Arrays of the 3 metrics, chi2dof, chi2R and sigmaG, as well as the lcTypes of all objects
-    function: Create a separate histogram for every lcType within each metric's distribution. (to see overlap of each distribution)
-    output: n/a
+    '''Create a separate histogram for every lcType within each metric's distribution. (to see overlap of each distribution)
+    Parameters
+    ---------- 
+    chi2dofArray : array_like
+        contains calculated chi2 pr. degree of freedom values
+    chi2RArray : array_like
+        contains calculated robust chi2 values
+    sigmaGArray : array_like
+        contains calulated values of sigmaG
+    lcType : array_like
+        list of integers corresponding to object type 
+    
+    Returns
+    -------
+    output: 
+        n/a
     '''
     objectIdx = {}
     objectIdx['other'] = np.where(lcType == 0)
@@ -475,10 +625,24 @@ def plot_metricDists_overlap(chi2dofArray, chi2RArray, sigmaGArray, lcType):
     ax3.set_ylabel('dN/dsigmaG')
 
 def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids):
-    '''
-    input: Arrays of the 3 metrics, chi2dof, chi2R and sigmaG, as well as the lcTypes of all objects
-    function: Plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
-    output: n/a
+    '''Plot ratio of sigmaGArray/chi2dofArray vs. chi2RArray/chi2dofArray
+    Parameters
+    ----------
+    chi2dofArray : array_like
+        contains calculated chi2 pr. degree of freedom values
+    chi2RArray : array_like
+        contains calculated robust chi2 values
+    sigmaGArray : array_like
+        contains calulated values of sigmaG
+    lcType : array_like
+        list of integers corresponding to object type
+    ids : array_like
+        contains id numbers of objects
+        
+    Returns
+    -------
+    output: 
+        n/a
     '''
     x = np.array(sigmaGArray/chi2RArray)
     y = np.array(chi2RArray/chi2dofArray)
@@ -544,6 +708,19 @@ def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids):
             plt.title(str(key) + ' population: ' + str(len(tempIdx)))
   
 def gaussian_mixture_model(X):  
+    '''For a given matrix of data, computes a variety gaussian mixture models increasing fit complexity, selects a best model 
+    based on AIC and BIC results.
+    
+    Parameters
+    ----------
+    X : array_like
+        2D matrix, each entry being a set of parameters for a sample (n_samples by n_features)
+    
+    Returns
+    -------
+    output : 
+        n/a
+    '''
     #------------------------------------------------------------
     # Compute GMM models & AIC/BIC
     N = np.arange(1, 14)
@@ -611,4 +788,128 @@ def gaussian_mixture_model(X):
     ax.xaxis.set_major_locator(plt.MultipleLocator(0.3))
     ax.set_xlabel('')
     ax.set_ylabel('')
+    plt.show()
     
+def KNN(X, y):
+    '''
+    Parameters
+    ----------
+    X : array_like
+        2D matrix, each entry being a set of parameters for a sample (n_samples by n_features)
+    y : array_like
+        1D array of integers corresponding to labels for each sample
+    
+    Returns
+    -------
+    output : 
+        n/a
+    '''
+    print len(X)
+    
+    # get data and split into training & testing sets
+    (X_train, X_test), (y_train, y_test) = split_samples(X, y, [0.75, 0.25],
+                                                         random_state=0)
+    
+    N_tot = len(y)
+    N_st = np.sum(y == 0)
+    N_rr = N_tot - N_st
+    N_train = len(y_train)
+    N_test = len(y_test)
+    N_plot = 5000 + N_rr
+    
+    #----------------------------------------------------------------------
+    # perform Classification
+    
+    classifiers = []
+    predictions = []
+    Ncolors = np.arange(1, X.shape[1] + 1)
+    kvals = [1, 15]
+    
+    for k in kvals:
+        classifiers.append([])
+        predictions.append([])
+        for nc in Ncolors:
+            clf = KNeighborsClassifier(n_neighbors=k)
+            clf.fit(X_train[:, :nc], y_train)
+            y_pred = clf.predict(X_test[:, :nc])
+    
+            classifiers[-1].append(clf)
+            predictions[-1].append(y_pred)
+    
+    completeness, contamination = completeness_contamination(predictions, y_test)
+    
+    print "completeness", completeness
+    print "contamination", contamination
+    
+    #------------------------------------------------------------
+    # Compute the decision boundary
+    clf = classifiers[1][1]
+    xlim = (0.7, 1.35)
+    ylim = (-0.15, 0.4)
+    
+    xx, yy = np.meshgrid(np.linspace(xlim[0], xlim[1], 71),
+                         np.linspace(ylim[0], ylim[1], 81))
+    
+    Z = clf.predict(np.c_[yy.ravel(), xx.ravel()])
+    Z = Z.reshape(xx.shape)
+    
+    #----------------------------------------------------------------------
+    # plot the results
+    fig = plt.figure(figsize=(5, 2.5))
+    fig.subplots_adjust(bottom=0.15, top=0.95, hspace=0.0,
+                        left=0.1, right=0.95, wspace=0.2)
+    
+    # left plot: data and decision boundary
+    ax = fig.add_subplot(121)
+    im = ax.scatter(X[-N_plot:, 1], X[-N_plot:, 0], c=y[-N_plot:],
+                    s=4, lw=0, cmap=plt.cm.binary, zorder=2)
+    im.set_clim(-0.5, 1)
+    
+#    im = ax.imshow(Z, origin='lower', aspect='auto',
+#                   cmap=plt.cm.binary, zorder=1,
+#                   extent=xlim + ylim)
+    im.set_clim(0, 2)
+    
+    #ax.contour(xx, yy, Z, [0.5], colors='k')
+    
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    
+    ax.set_xlabel('')
+    ax.set_ylabel('')
+    
+    ax.text(0.02, 0.02, "k = %i" % kvals[1],
+            transform=ax.transAxes)
+    
+    # plot completeness vs Ncolors
+    ax = fig.add_subplot(222)
+    
+    ax.plot(Ncolors, completeness[0], 'o-k', ms=6, label='k=%i' % kvals[0])
+    ax.plot(Ncolors, completeness[1], '^--k', ms=6, label='k=%i' % kvals[1])
+    
+    ax.xaxis.set_major_locator(plt.MultipleLocator(1))
+    ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+    ax.xaxis.set_major_formatter(plt.NullFormatter())
+    
+    ax.set_ylabel('completeness')
+    ax.set_xlim(0.5, 4.5)
+    ax.set_ylim(-0.1, 1.1)
+    ax.grid(True)
+    
+    # plot contamination vs Ncolors
+    ax = fig.add_subplot(224)
+    ax.plot(Ncolors, contamination[0], 'o-k', ms=6, label='k=%i' % kvals[0])
+    ax.plot(Ncolors, contamination[1], '^--k', ms=6, label='k=%i' % kvals[1])
+    ax.legend(loc='lower right',
+              bbox_to_anchor=(1.0, 0.79))
+    
+    ax.xaxis.set_major_locator(plt.MultipleLocator(1))
+    ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+    ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%i'))
+    ax.set_xlabel('N colors')
+    ax.set_ylabel('contamination')
+    ax.set_xlim(0.5, 4.5)
+    ax.set_ylim(-0.1, 1.1)
+    ax.grid(True)
+    
+    plt.show()
