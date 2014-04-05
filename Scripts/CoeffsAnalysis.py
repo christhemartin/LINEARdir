@@ -13,8 +13,9 @@ allData = func.read_data()#pull in all data from FTCoeffs.dat
 
 #----1.1(RFP)-------------------------------
 RFP = func.ComputeRFP(allData)#compute the relative fourier parameters
-func.plotRFP(RFP,allData['lcType'])
-#func.plotRFP_vs_P(RFP, allData['period'], lcType)
+#func.plot_a(allData, RFP)
+#func.plotRFP(RFP, allData)
+func.plotRFP_vs_P(RFP, allData)
 
 #----1.1(GMM)-------------------------------
 #X = np.array([RFP['R31'],RFP['Phi21']]).T

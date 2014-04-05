@@ -18,6 +18,7 @@ from astroML.utils import split_samples
 from astroML.utils import completeness_contamination
 from sklearn.neighbors import KNeighborsClassifier
 
+
 def read_data():
     '''
     Parameters
@@ -44,25 +45,25 @@ def read_data():
     temp_data = [line.split() for line in lines]
 
 #    temp_data = np.loadtxt('iterFTcoeffs.dat')
-    data['id'] = [float(i[0]) for i in temp_data]
-    data['period'] = [float(i[1]) for i in temp_data]
-    data['chi2R'] = [float(i[2]) for i in temp_data]
-    data['chi2dof'] = [float(i[3]) for i in temp_data]
-    data['sigmaG'] = [float(i[4]) for i in temp_data]
-    data['sizeAll'] = [float(i[5]) for i in temp_data]
-    data['sizeGood'] = [float(i[6]) for i in temp_data]
-    data['noMP'] = [float(i[7]) for i in temp_data]
+    data['id'] = np.array([float(i[0]) for i in temp_data])
+    data['period'] = np.array([float(i[1]) for i in temp_data])
+    data['chi2R'] = np.array([float(i[2]) for i in temp_data])
+    data['chi2dof'] = np.array([float(i[3]) for i in temp_data])
+    data['sigmaG'] = np.array([float(i[4]) for i in temp_data])
+    data['sizeAll'] = np.array([float(i[5]) for i in temp_data])
+    data['sizeGood'] = np.array([float(i[6]) for i in temp_data])
+    data['noMP'] = np.array([float(i[7]) for i in temp_data])
     data['lcType'] = [str(i[8]) for i in temp_data]
-    data['coefficients'] = [map(float, i[9:]) for i in temp_data]
+    data['coefficients'] = np.array([map(float, i[9:]) for i in temp_data])
     os.chdir(od)
     return data
 
-def save_plots(badObjs, path = ''):
+def save_plots(Objs, path):
     '''Find objects, copy individual plots, and place them into a separate directory for later viewing
     
     Parameters
     ----------
-    badObjs : array_like
+    Objs : array_like
         IDs of objects 
  
     Returns
@@ -76,9 +77,9 @@ def save_plots(badObjs, path = ''):
         os.chdir('..\\FTplots')
     else:
         os.chdir('FTplots')
-    for ID in badObjs:
+    for ID in Objs:
         id = int(ID)
-        shutil.copy(str(id) + '_FTplot.png', '..\\Regions_of_Interest\\' + path)
+        shutil.copy(str(id) + '_FTplot.png', path)
     os.chdir(od)
         
 def convert_lcType(object):
@@ -103,6 +104,15 @@ def convert_lcType(object):
         lcType = types[object]
     return lcType
 
+def fold_range(data,wall):
+    #folds data to keep within range of 0 to 'wall'
+    for i in range(len(data)):
+        if data[i] > wall:
+            data[i] = data[i]%wall
+        while data[i] < 0.0:
+            data[i] += wall
+    return data
+
 def ComputeRFP(data):
     '''for each object, use coefficients from Fourier transform to calculate various relative fourier parameters.
     
@@ -125,20 +135,95 @@ def ComputeRFP(data):
     A1 = np.array([np.sqrt(object[7]**2.0 + object[1]**2.0) for object in coeffs])
     A2 = np.array([np.sqrt(object[8]**2.0 + object[2]**2.0) for object in coeffs])
     A3 = np.array([np.sqrt(object[9]**2.0 + object[3]**2.0) for object in coeffs])
+    A4 = np.array([np.sqrt(object[10]**2.0 + object[4]**2.0) for object in coeffs])
     
-    Phi1 = np.array([np.arctan(-object[1]/object[7]) for object in coeffs])%1
-    Phi2 = np.array([np.arctan(-object[2]/object[8]) for object in coeffs])%1
-    Phi3 = np.array([np.arctan(-object[3]/object[9]) for object in coeffs])%1
+    Phi1 = np.array([np.arctan(-object[1]/object[7]) for object in coeffs])
+    Phi2 = np.array([np.arctan(-object[2]/object[8]) for object in coeffs])
+    Phi3 = np.array([np.arctan(-object[3]/object[9]) for object in coeffs])
+    Phi4 = np.array([np.arctan(-object[4]/object[10]) for object in coeffs])
     
     RFP = {}
     RFP['R21'] = A2/A1
     RFP['R31'] = A3/A1
-    RFP['Phi21'] = Phi2 - 2.0*Phi1
-    RFP['Phi31'] = Phi3 - 3.0*Phi1
+    RFP['R41'] = A4/A1
+    RFP['Phi21'] = fold_range(fold_range(Phi2, 2.0) - fold_range(2.0*Phi1, 2.0), 2.0)
+    RFP['Phi31'] = fold_range(fold_range(Phi3, 2.0) - fold_range(3.0*Phi1, 2.0), 2.0)
+    RFP['Phi41'] = fold_range(fold_range(Phi4, 2.0) - fold_range(4.0*Phi1, 2.0), 2.0)
     
     return RFP
 
-def plotRFP(RFP, lcType):
+def plot_a(data, RFP):
+    '''plot coefficients from Fourier transform against each other.
+    
+    Parameters
+    ---------- 
+    data : dict
+        data read from coefficients.dat file
+    
+    Returns
+    -------
+    '''
+    coeffs = data['coefficients']
+    lcType = data['lcType']
+    
+    a_2 = np.array([object[7] for object in data['coefficients']])
+    a_4 = np.array([object[9] for object in data['coefficients']])
+    
+    R_21 = RFP['R21']
+    R_41 = RFP['R41']
+    
+    
+    objectIdx = {}
+    objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
+    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
+#    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
+    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
+    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
+#    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
+#    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
+#    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
+#    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
+#    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
+    
+    
+    
+    count = 0
+    fig = plt.figure()
+    plt.suptitle('a_i vs. R_i1', fontsize = 20)
+    colors = ['blue', 'green', 'red', 'yellow']
+    for key in objectIdx.keys():
+        idx = objectIdx[key]
+        ids = np.array(data['id'])[idx]
+        print key, idx
+        
+        cm = plt.get_cmap('jet')
+            
+#        plt.suptitle('Relative Fourier Parameters - ' + key)
+        color = cm(1.*float(count)/len(objectIdx.keys()))
+
+        def scatterClick(event):
+            ind = event.ind
+            print 'onpick3 scatter:', np.take(ids, ind)
+            save_plots(np.take(ids, ind), 'C:\Users\Christopher\Documents\GitHub\LINEARdir\Scratch_Plots\Of_Interest')
+
+        ax1 = plt.subplot(1,2,1)
+        plt.scatter(a_2[idx], np.log(R_21[idx]), c = colors[count], marker = '.', label = key, alpha = .5, picker = True)
+        plt.grid(True)
+        plt.xlabel('a_2', fontsize = 16)
+        plt.ylabel('log R_21', fontsize = 16)
+        
+        plt.subplot(1,2,2)
+        plt.scatter(a_4[idx], np.log(R_41[idx]), c = colors[count], marker = '.', label = key, alpha = .5, picker = True)
+        plt.grid(True)
+        plt.xlabel('a_4', fontsize = 16)
+        plt.ylabel('log R_41', fontsize = 16)
+        
+        count += 1
+    legend1 = ax1.legend(loc='lower right', ncol=1, shadow=True)
+    fig.canvas.mpl_connect('pick_event', scatterClick)
+    plt.show()
+
+def plotRFP(RFP, data):
     '''plots all combinations of the relative fourier parameters across lcTypes
     Parameters
     ---------- 
@@ -152,105 +237,13 @@ def plotRFP(RFP, lcType):
     output:
         n/a
     '''
-
+    lcType = data['lcType']
     objectIdx = {}
     objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
-    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
+##    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
 #    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
-    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
-    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
-#    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
-#    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
-#    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
-#    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
-#    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
-    
-    count = 0
-#    fig = plt.figure()
-#    plt.suptitle('Relative Fourier Parameters')
-    for key in objectIdx.keys():
-        idx = objectIdx[key]
-        
-        cm = plt.get_cmap('jet')
-            
-        fig = plt.figure()
-        plt.suptitle('Relative Fourier Parameters - ' + key)
-        color = cm(1.*float(count)/len(objectIdx.keys()))
-
-        ax1 = fig.add_subplot(3,2,1)
-        ax1.scatter(np.log(RFP['R21'][idx]), np.log(RFP['R31'][idx]), c = color, marker ='o', alpha = .7)
-        ax1.set_ylim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
-        ax1.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
-        ax1.set_title('R21 vs R31')
-        ax1.set_xlabel('R21')
-        ax1.set_ylabel('R31')
-        
-        ax2 = fig.add_subplot(3,2,2)
-        ax2.scatter(np.log(RFP['R21'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7)
-        ax2.set_ylim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
-        ax2.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
-        ax2.set_title('R21 vs. Phi21')
-        ax2.set_xlabel('R21')
-        ax2.set_ylabel('Phi21')
-        
-        ax3 = fig.add_subplot(3,2,3)
-        ax3.scatter(np.log(RFP['R21'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
-        ax3.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
-        ax3.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
-        ax3.set_title('R21 vs. Phi31')
-        ax3.set_xlabel('R21')
-        ax3.set_ylabel('Phi31')
-        
-        ax4 = fig.add_subplot(3,2,4)
-        ax4.scatter(np.log(RFP['R31'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7)
-        ax4.set_ylim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
-        ax4.set_xlim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
-        ax4.set_title('R31 vs. Phi21')
-        ax4.set_xlabel('R31')
-        ax4.set_ylabel('Phi21')
-        
-        ax5 = fig.add_subplot(3,2,5)
-        ax5.scatter(np.log(RFP['R31'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
-        ax5.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
-        ax5.set_xlim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
-        ax5.set_title('R31 vs Phi31')
-        ax5.set_xlabel('R31')
-        ax5.set_ylabel('Phi31')
-        
-        ax6 = fig.add_subplot(3,2,6)
-        ax6.scatter(RFP['Phi21'][idx], RFP['Phi31'][idx], c = color, marker ='o', alpha = .7, label = key)
-        ax6.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
-        ax6.set_xlim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
-        ax6.set_title('Phi21 vs Phi31')
-        ax6.set_xlabel('Phi21')
-        ax6.set_ylabel('Phi31')
-        legend6 = ax6.legend(loc='lower right', ncol=1, shadow=True)
-        count += 1
-    plt.show()
-
-def plotRFP_vs_P(RFP, P, lcType):
-    '''plots period vs relative fourier parameters across lcTypes
-    Parameters
-    ---------- 
-    RFP : dict
-        dictionary of all computed relative fourier parameters
-    P : array_like
-        periods of objects
-    lcType : array_like
-        contains strings of object types
-    
-    Returns
-    -------
-    output:
-        n/a
-    '''
-    P = np.array(P)
-    objectIdx = {}
-    objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
-    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
-#    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
-    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
-    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
+##    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
+##    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
 #    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
 #    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
 #    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
@@ -259,7 +252,105 @@ def plotRFP_vs_P(RFP, P, lcType):
     
     count = 0
     fig = plt.figure()
-    plt.suptitle('Relative Fourier Parameters vs. Period')
+    plt.suptitle('Relative Fourier Parameters')
+    for key in objectIdx.keys():
+        idx = objectIdx[key]
+        cm = plt.get_cmap('jet')
+        ids = np.array(data['id'])[idx]
+#        fig = plt.figure()
+#        plt.suptitle('Relative Fourier Parameters - ' + key)
+        color = cm(1.*float(count)/len(objectIdx.keys()))
+
+#        ax1 = fig.add_subplot(3,2,1)
+#        ax1.scatter(np.log(RFP['R21'][idx]), np.log(RFP['R31'][idx]), c = color, marker ='o', alpha = .7)
+#        ax1.set_ylim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
+#        ax1.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+#        ax1.set_title('R21 vs R31')
+#        ax1.set_xlabel('R21')
+#        ax1.set_ylabel('R31')
+        
+        #when the scatter plot is clicked, print object id, and save its lightcurve to a folder for later inspection
+        def scatterClick(event):
+            ind = event.ind
+            print 'onpick3 scatter:', np.take(ids, ind)
+            save_plots(np.take(ids, ind), 'C:\Users\Christopher\Documents\GitHub\LINEARdir\Scratch_Plots\Phi_21_Clusters\Region_2')
+        
+        ax2 = fig.add_subplot(1,1,1)
+        ax2.scatter(np.log(RFP['R21'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7, picker=True)
+        ax2.set_ylim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
+        ax2.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+        ax2.set_title('R21 vs. Phi21')
+        ax2.set_xlabel('R21')
+        ax2.set_ylabel('Phi21')
+
+#        ax3 = fig.add_subplot(3,2,3)
+#        ax3.scatter(np.log(RFP['R21'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
+#        ax3.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
+#        ax3.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+#        ax3.set_title('R21 vs. Phi31')
+#        ax3.set_xlabel('R21')
+#        ax3.set_ylabel('Phi31')
+#        
+#        ax4 = fig.add_subplot(3,2,4)
+#        ax4.scatter(np.log(RFP['R31'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7)
+#        ax4.set_ylim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
+#        ax4.set_xlim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
+#        ax4.set_title('R31 vs. Phi21')
+#        ax4.set_xlabel('R31')
+#        ax4.set_ylabel('Phi21')
+#        
+#        ax5 = fig.add_subplot(3,2,5)
+#        ax5.scatter(np.log(RFP['R31'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
+#        ax5.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
+#        ax5.set_xlim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
+#        ax5.set_title('R31 vs Phi31')
+#        ax5.set_xlabel('R31')
+#        ax5.set_ylabel('Phi31')
+#        
+#        ax6 = fig.add_subplot(3,2,6)
+#        ax6.scatter(RFP['Phi21'][idx], RFP['Phi31'][idx], c = color, marker ='o', alpha = .7, label = key)
+#        ax6.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
+#        ax6.set_xlim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
+#        ax6.set_title('Phi21 vs Phi31')
+#        ax6.set_xlabel('Phi21')
+#        ax6.set_ylabel('Phi31')
+#        legend6 = ax6.legend(loc='lower right', ncol=1, shadow=True)
+        count += 1
+    fig.canvas.mpl_connect('pick_event', scatterClick)
+    plt.show()
+
+def plotRFP_vs_P(RFP, allData):
+    '''plots period vs relative fourier parameters across lcTypes
+    Parameters
+    ---------- 
+    RFP : dict
+        dictionary of all computed relative fourier parameters
+    allData : dict
+        dictionary of object id, period, chi2dof, chi2R, sigmaG, 
+        sizeAll, sizeGood, noMP, lcType, coefficients
+        
+    Returns
+    -------
+    output:
+        n/a
+    '''
+    lcType = allData['lcType']
+    P = np.array(allData['period'])
+    objectIdx = {}
+#    objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
+#    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
+    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
+#    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
+#    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
+    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
+    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
+    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
+    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
+    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
+
+    count = 0
+    fig = plt.figure()
+    plt.suptitle('Relative Fourier Parameters vs. Period', fontsize = 20)
     for key in objectIdx.keys():
         idx = objectIdx[key]
         
@@ -269,33 +360,47 @@ def plotRFP_vs_P(RFP, P, lcType):
 #        plt.suptitle('Relative Fourier Parameters - ' + key)
         color = cm(1.*float(count)/len(objectIdx.keys()))
         
-        ax1 = fig.add_subplot(2,2,1)
-        ax1.scatter(np.log(RFP['R21'][idx]), np.log(P[idx]), c = color, marker ='o', alpha = .7, label = key)
-        legend1 = ax1.legend(loc='upper left', ncol=1, shadow=True)
-        ax1.set_ylabel('log(Period)')
-        ax1.set_xlabel('log(R21)')
+        ax1 = fig.add_subplot(3,2,1)
+        ax1.scatter(np.log(P[idx]), np.log(RFP['R21'][idx]), c = color, marker ='o', alpha = .5, label = key)
+        legend1 = ax1.legend(loc='lower right', ncol=1, shadow=True)
+        ax1.set_xlabel('log(Period)', fontsize = 16)
+        ax1.set_ylabel('log(R21)', fontsize = 16)
         ax1.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
             zorder=2, alpha = .8)
         
-        ax2 = fig.add_subplot(2,2,2)
-        ax2.scatter(np.log(RFP['R31'][idx]), np.log(P[idx]), c = color, marker ='o', alpha = .7)
-        ax2.set_ylabel('log(Period)')
-        ax2.set_xlabel('log(R31)')
+        ax2 = fig.add_subplot(3,2,2)
+        ax2.scatter(np.log(RFP['R21'][idx]),np.log(RFP['R31'][idx]), c = color, marker ='o', alpha = .5)
+        ax2.set_xlabel('log(R21)', fontsize = 16)
+        ax2.set_ylabel('log(R31)', fontsize = 16)
         ax2.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
             zorder=2, alpha = .8)
         
-        ax3 = fig.add_subplot(2,2,3)
-        ax3.scatter(RFP['Phi21'][idx], np.log(P[idx]), c = color, marker ='o', alpha = .7)
-        ax3.set_ylabel('log(Period)')
-        ax3.set_xlabel('log(Phi21)')
+        ax3 = fig.add_subplot(3,2,3)
+        ax3.scatter(np.log(P[idx]), np.log(RFP['R41'][idx]), c = color, marker ='o', alpha = .5)
+        ax3.set_xlabel('log(Period)', fontsize = 16)
+        ax3.set_ylabel('log(R41)', fontsize = 16)
         ax3.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
             zorder=2, alpha = .8)
         
-        ax4 = fig.add_subplot(2,2,4)
-        ax4.scatter(RFP['Phi31'][idx], np.log(P[idx]), c = color, marker ='o', alpha = .7)
-        ax4.set_ylabel('log(Period)')
-        ax4.set_xlabel('log(Phi31)')
+        ax4 = fig.add_subplot(3,2,4)
+        ax4.scatter(np.log(RFP['R21'][idx]),np.log(RFP['R41'][idx]), c = color, marker ='o', alpha = .5)
+        ax4.set_xlabel('log(R21)', fontsize = 16)
+        ax4.set_ylabel('log(R41)', fontsize = 16)
         ax4.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+            zorder=2, alpha = .8)
+        
+        ax5 = fig.add_subplot(3,2,5)
+        ax5.scatter(np.log(P[idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .5)
+        ax5.set_xlabel('log(Period)', fontsize = 16)
+        ax5.set_ylabel('Phi31', fontsize = 16)
+        ax5.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+            zorder=2, alpha = .8)
+        
+        ax6 = fig.add_subplot(3,2,6)
+        ax6.scatter(np.log(RFP['R21'][idx]),RFP['Phi31'][idx], c = color, marker ='o', alpha = .5)
+        ax6.set_xlabel('log(R21)', fontsize = 16)
+        ax6.set_ylabel('Phi31', fontsize = 16)
+        ax6.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
             zorder=2, alpha = .8)
         
         count += 1
