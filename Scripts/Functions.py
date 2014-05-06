@@ -17,6 +17,7 @@ from astroML.plotting.tools import draw_ellipse
 from astroML.utils import split_samples
 from astroML.utils import completeness_contamination
 from sklearn.neighbors import KNeighborsClassifier
+from astroML.datasets import fetch_rrlyrae_combined
 
 
 def read_data():
@@ -96,6 +97,9 @@ def convert_lcType(object):
         number from 0 - 11 or string of object type, (opposite the input)
     '''
     if isinstance(object, float):
+        types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
+        lcType = types[int(object)]
+    if isinstance(object, int):
         types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
         lcType = types[int(object)]
     if isinstance(object,str):
@@ -189,7 +193,7 @@ def plot_a(data, RFP):
     
     count = 0
     fig = plt.figure()
-    plt.suptitle('a_i vs. R_i1', fontsize = 20)
+    plt.suptitle('RFP Correlations', fontsize = 20)
     colors = ['blue', 'green', 'red', 'yellow']
     for key in objectIdx.keys():
         idx = objectIdx[key]
@@ -205,17 +209,17 @@ def plot_a(data, RFP):
             ind = event.ind
             print 'onpick3 scatter:', np.take(ids, ind)
             save_plots(np.take(ids, ind), 'C:\Users\Christopher\Documents\GitHub\LINEARdir\Scratch_Plots\Of_Interest')
-
+        '''
         ax1 = plt.subplot(1,2,1)
-        plt.scatter(a_2[idx], np.log(R_21[idx]), c = colors[count], marker = '.', label = key, alpha = .5, picker = True)
+        plt.scatter(a_2[idx], np.log10(R_21[idx]), c = colors[count], marker = '.', label = key, alpha = .5, picker = True)
         plt.grid(True)
         plt.xlabel('a_2', fontsize = 16)
         plt.ylabel('log R_21', fontsize = 16)
-        
-        plt.subplot(1,2,2)
-        plt.scatter(a_4[idx], np.log(R_41[idx]), c = colors[count], marker = '.', label = key, alpha = .5, picker = True)
+        '''
+        ax1 = plt.subplot(1,1,1)
+        plt.scatter(np.log10(R_21[idx]), np.log10(R_41[idx]), c = colors[count], marker = 'o', label = key, alpha = .5, picker = True)
         plt.grid(True)
-        plt.xlabel('a_4', fontsize = 16)
+        plt.xlabel('log R_21', fontsize = 16)
         plt.ylabel('log R_41', fontsize = 16)
         
         count += 1
@@ -262,9 +266,9 @@ def plotRFP(RFP, data):
         color = cm(1.*float(count)/len(objectIdx.keys()))
 
 #        ax1 = fig.add_subplot(3,2,1)
-#        ax1.scatter(np.log(RFP['R21'][idx]), np.log(RFP['R31'][idx]), c = color, marker ='o', alpha = .7)
-#        ax1.set_ylim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
-#        ax1.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+#        ax1.scatter(np.log10(RFP['R21'][idx]), np.log10(RFP['R31'][idx]), c = color, marker ='o', alpha = .7)
+#        ax1.set_ylim(np.min(np.log10(RFP['R31'])), np.max(np.log10(RFP['R31'])))
+#        ax1.set_xlim(np.min(np.log10(RFP['R21'])), np.max(np.log10(RFP['R21'])))
 #        ax1.set_title('R21 vs R31')
 #        ax1.set_xlabel('R21')
 #        ax1.set_ylabel('R31')
@@ -276,33 +280,33 @@ def plotRFP(RFP, data):
             save_plots(np.take(ids, ind), 'C:\Users\Christopher\Documents\GitHub\LINEARdir\Scratch_Plots\Phi_21_Clusters\Region_2')
         
         ax2 = fig.add_subplot(1,1,1)
-        ax2.scatter(np.log(RFP['R21'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7, picker=True)
+        ax2.scatter(np.log10(RFP['R21'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7, picker=True)
         ax2.set_ylim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
-        ax2.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+        ax2.set_xlim(np.min(np.log10(RFP['R21'])), np.max(np.log10(RFP['R21'])))
         ax2.set_title('R21 vs. Phi21')
         ax2.set_xlabel('R21')
         ax2.set_ylabel('Phi21')
 
 #        ax3 = fig.add_subplot(3,2,3)
-#        ax3.scatter(np.log(RFP['R21'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
+#        ax3.scatter(np.log10(RFP['R21'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
 #        ax3.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
-#        ax3.set_xlim(np.min(np.log(RFP['R21'])), np.max(np.log(RFP['R21'])))
+#        ax3.set_xlim(np.min(np.log10(RFP['R21'])), np.max(np.log10(RFP['R21'])))
 #        ax3.set_title('R21 vs. Phi31')
 #        ax3.set_xlabel('R21')
 #        ax3.set_ylabel('Phi31')
 #        
 #        ax4 = fig.add_subplot(3,2,4)
-#        ax4.scatter(np.log(RFP['R31'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7)
+#        ax4.scatter(np.log10(RFP['R31'][idx]), RFP['Phi21'][idx], c = color, marker ='o', alpha = .7)
 #        ax4.set_ylim(np.min(RFP['Phi21']), np.max(RFP['Phi21']))
-#        ax4.set_xlim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
+#        ax4.set_xlim(np.min(np.log10(RFP['R31'])), np.max(np.log10(RFP['R31'])))
 #        ax4.set_title('R31 vs. Phi21')
 #        ax4.set_xlabel('R31')
 #        ax4.set_ylabel('Phi21')
 #        
 #        ax5 = fig.add_subplot(3,2,5)
-#        ax5.scatter(np.log(RFP['R31'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
+#        ax5.scatter(np.log10(RFP['R31'][idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .7)
 #        ax5.set_ylim(np.min(RFP['Phi31']), np.max(RFP['Phi31']))
-#        ax5.set_xlim(np.min(np.log(RFP['R31'])), np.max(np.log(RFP['R31'])))
+#        ax5.set_xlim(np.min(np.log10(RFP['R31'])), np.max(np.log10(RFP['R31'])))
 #        ax5.set_title('R31 vs Phi31')
 #        ax5.set_xlabel('R31')
 #        ax5.set_ylabel('Phi31')
@@ -337,16 +341,16 @@ def plotRFP_vs_P(RFP, allData):
     lcType = allData['lcType']
     P = np.array(allData['period'])
     objectIdx = {}
-#    objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
-#    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
-    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
-#    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
-#    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
-    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
-    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
-    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
-    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
-    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
+    objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
+    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
+#    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
+    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
+    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
+#    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
+#    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
+#    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
+#    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
+#    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
 
     count = 0
     fig = plt.figure()
@@ -361,7 +365,7 @@ def plotRFP_vs_P(RFP, allData):
         color = cm(1.*float(count)/len(objectIdx.keys()))
         
         ax1 = fig.add_subplot(3,2,1)
-        ax1.scatter(np.log(P[idx]), np.log(RFP['R21'][idx]), c = color, marker ='o', alpha = .5, label = key)
+        ax1.scatter(np.log10(P[idx]), np.log10(RFP['R21'][idx]), c = color, marker ='o', alpha = .5, label = key)
         legend1 = ax1.legend(loc='lower right', ncol=1, shadow=True)
         ax1.set_xlabel('log(Period)', fontsize = 16)
         ax1.set_ylabel('log(R21)', fontsize = 16)
@@ -369,35 +373,35 @@ def plotRFP_vs_P(RFP, allData):
             zorder=2, alpha = .8)
         
         ax2 = fig.add_subplot(3,2,2)
-        ax2.scatter(np.log(RFP['R21'][idx]),np.log(RFP['R31'][idx]), c = color, marker ='o', alpha = .5)
+        ax2.scatter(np.log10(RFP['R21'][idx]),np.log10(RFP['R31'][idx]), c = color, marker ='o', alpha = .5)
         ax2.set_xlabel('log(R21)', fontsize = 16)
         ax2.set_ylabel('log(R31)', fontsize = 16)
         ax2.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
             zorder=2, alpha = .8)
         
         ax3 = fig.add_subplot(3,2,3)
-        ax3.scatter(np.log(P[idx]), np.log(RFP['R41'][idx]), c = color, marker ='o', alpha = .5)
+        ax3.scatter(np.log10(P[idx]), np.log10(RFP['R41'][idx]), c = color, marker ='o', alpha = .5)
         ax3.set_xlabel('log(Period)', fontsize = 16)
         ax3.set_ylabel('log(R41)', fontsize = 16)
         ax3.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
             zorder=2, alpha = .8)
         
         ax4 = fig.add_subplot(3,2,4)
-        ax4.scatter(np.log(RFP['R21'][idx]),np.log(RFP['R41'][idx]), c = color, marker ='o', alpha = .5)
+        ax4.scatter(np.log10(RFP['R21'][idx]),np.log10(RFP['R41'][idx]), c = color, marker ='o', alpha = .5)
         ax4.set_xlabel('log(R21)', fontsize = 16)
         ax4.set_ylabel('log(R41)', fontsize = 16)
         ax4.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
             zorder=2, alpha = .8)
         
         ax5 = fig.add_subplot(3,2,5)
-        ax5.scatter(np.log(P[idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .5)
+        ax5.scatter(np.log10(P[idx]), RFP['Phi31'][idx], c = color, marker ='o', alpha = .5)
         ax5.set_xlabel('log(Period)', fontsize = 16)
         ax5.set_ylabel('Phi31', fontsize = 16)
         ax5.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
             zorder=2, alpha = .8)
         
         ax6 = fig.add_subplot(3,2,6)
-        ax6.scatter(np.log(RFP['R21'][idx]),RFP['Phi31'][idx], c = color, marker ='o', alpha = .5)
+        ax6.scatter(np.log10(RFP['R21'][idx]),RFP['Phi31'][idx], c = color, marker ='o', alpha = .5)
         ax6.set_xlabel('log(R21)', fontsize = 16)
         ax6.set_ylabel('Phi31', fontsize = 16)
         ax6.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
@@ -507,47 +511,47 @@ def plot_lcType_scatter(xData, yData, lcType, xName, yName):
     anom_ceph = np.where(lcType == 11)
     
     axa = fig.add_subplot(4,3,1)
-    ima = axa.scatter(np.log(xData[other]), np.log(yData[other]), **scatter_kwargs)
+    ima = axa.scatter(np.log10(xData[other]), np.log10(yData[other]), **scatter_kwargs)
     axa.set_title('Other')
     
     axb = fig.add_subplot(4,3,2,sharex=axa,sharey=axa)
-    imb = axb.scatter(np.log(xData[RR_Lyrae_ab]), np.log(yData[RR_Lyrae_ab]), **scatter_kwargs)
+    imb = axb.scatter(np.log10(xData[RR_Lyrae_ab]), np.log10(yData[RR_Lyrae_ab]), **scatter_kwargs)
     axb.set_title('RR Lyrae a&b')
     
     axc = fig.add_subplot(4,3,4,sharex=axa,sharey=axa)
-    imc = axc.scatter(np.log(xData[RR_Lyrae_c]), np.log(yData[RR_Lyrae_c]), **scatter_kwargs)
+    imc = axc.scatter(np.log10(xData[RR_Lyrae_c]), np.log10(yData[RR_Lyrae_c]), **scatter_kwargs)
     axc.set_title('RR Lyrae c')
     
     axd = fig.add_subplot(4,3,5,sharex=axa,sharey=axa)
-    imd = axd.scatter(np.log(xData[algol_1]), np.log(yData[algol_1]), **scatter_kwargs)
+    imd = axd.scatter(np.log10(xData[algol_1]), np.log10(yData[algol_1]), **scatter_kwargs)
     axd.set_title('Algol like with 1 minimum')
     
     axe = fig.add_subplot(4,3,6,sharex=axa,sharey=axa)
-    ime = axe.scatter(np.log(xData[algol_2]), np.log(yData[algol_2]), **scatter_kwargs)
+    ime = axe.scatter(np.log10(xData[algol_2]), np.log10(yData[algol_2]), **scatter_kwargs)
     axe.set_title('Algol like with 2 minima')
     
     axf = fig.add_subplot(4,3,7,sharex=axa,sharey=axa)
-    imf = axf.scatter(np.log(xData[contact_bin]), np.log(yData[contact_bin]), **scatter_kwargs)
+    imf = axf.scatter(np.log10(xData[contact_bin]), np.log10(yData[contact_bin]), **scatter_kwargs)
     axf.set_title('Contact Binary')
     
     axg = fig.add_subplot(4,3,8,sharex=axa,sharey=axa)
-    img = axg.scatter(np.log(xData[DSSP]), np.log(yData[DSSP]), **scatter_kwargs)
+    img = axg.scatter(np.log10(xData[DSSP]), np.log10(yData[DSSP]), **scatter_kwargs)
     axg.set_title('Delta Scu/Sx Phe')
     
     axh = fig.add_subplot(4,3,9,sharex=axa,sharey=axa)
-    imh = axh.scatter(np.log(xData[LPV]), np.log(yData[LPV]), **scatter_kwargs)
+    imh = axh.scatter(np.log10(xData[LPV]), np.log10(yData[LPV]), **scatter_kwargs)
     axh.set_title('Long Period Variable')
     
     axi = fig.add_subplot(4,3,10,sharex=axa,sharey=axa)
-    imi = axi.scatter(np.log(xData[heartbeat]), np.log(yData[heartbeat]), **scatter_kwargs)
+    imi = axi.scatter(np.log10(xData[heartbeat]), np.log10(yData[heartbeat]), **scatter_kwargs)
     axi.set_title('Heartbeat Candidate')
     
     axj = fig.add_subplot(4,3,11,sharex=axa,sharey=axa)
-    imj = axj.scatter(np.log(xData[BL_hercules]), np.log(yData[BL_hercules]), **scatter_kwargs)
+    imj = axj.scatter(np.log10(xData[BL_hercules]), np.log10(yData[BL_hercules]), **scatter_kwargs)
     axj.set_title('BL Hercules')
     
     axk = fig.add_subplot(4,3,12,sharey=axa)
-    imk = axk.scatter(np.log(xData[anom_ceph]), np.log(yData[anom_ceph]), **scatter_kwargs)
+    imk = axk.scatter(np.log10(xData[anom_ceph]), np.log10(yData[anom_ceph]), **scatter_kwargs)
     axk.set_title('Anomalous Cepheid')
 
 def plot_2DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType):
@@ -579,21 +583,21 @@ def plot_2DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType):
     scatter_kwargs = dict(s=4, lw=0, edgecolors='none', c=lcType, cmap=cmap, alpha = .7)
     
     ax1 = fig.add_subplot(2,2,1)
-    im1 = ax1.scatter(np.log(chi2dofArray), np.log(chi2RArray), **scatter_kwargs)
+    im1 = ax1.scatter(np.log10(chi2dofArray), np.log10(chi2RArray), **scatter_kwargs)
     im1.set_clim(clim)
     ax1.set_xlabel('chi2dof')
     ax1.set_ylabel('chi2R')
     ax1.set_title('log(chi2dof) vs. log(chi2R)')
     
     ax2 = fig.add_subplot(2,2,3)
-    im2 = ax2.scatter(np.log(sigmaGArray), np.log(chi2dofArray), **scatter_kwargs)
+    im2 = ax2.scatter(np.log10(sigmaGArray), np.log10(chi2dofArray), **scatter_kwargs)
     im2.set_clim(clim)
     ax2.set_ylabel('chi2dof')
     ax2.set_xlabel('sigmaG')
     ax2.set_title('log(chi2dof) vs. log(sigmaG)')
     
     ax3 = fig.add_subplot(2,2,4)
-    im3 = ax3.scatter(np.log(sigmaGArray), np.log(chi2RArray), **scatter_kwargs)
+    im3 = ax3.scatter(np.log10(sigmaGArray), np.log10(chi2RArray), **scatter_kwargs)
     im3.set_clim(clim)
     ax3.set_ylabel('chi2R')
     ax3.set_xlabel('sigmaG')
@@ -625,7 +629,7 @@ def plot_3DScatter(chi2dofArray, chi2RArray, sigmaGArray, lcType):
     fig = plt.figure()
     fig.suptitle('Metric Space for chi2dof, chi2R & sigmaG')
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(np.log(chi2dofArray), np.log(chi2RArray), np.log(sigmaGArray), c=lcType, cmap = plt.cm.jet, alpha = .7)
+    ax.scatter(np.log10(chi2dofArray), np.log10(chi2RArray), np.log10(sigmaGArray), c=lcType, cmap = plt.cm.jet, alpha = .7)
     ax.set_xlabel('chi2dof')
     ax.set_ylabel('chi2R')
     ax.set_zlabel('sigmaG')
@@ -812,6 +816,38 @@ def plot_ratios(chi2dofArray, chi2RArray, sigmaGArray, lcType, ids):
                      zorder=2, alpha = .8)
             plt.title(str(key) + ' population: ' + str(len(tempIdx)))
   
+def plot_types(Xvar, Yvar, lcType):  
+    objectIdx = {}
+    objectIdx['RR_Lyrae_ab'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_ab']
+    objectIdx['RR_Lyrae_c'] = [i for i in range(len(lcType)) if lcType[i] == 'RR_Lyrae_c']
+    objectIdx['algol_1'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_1']
+    objectIdx['algol_2'] = [i for i in range(len(lcType)) if lcType[i] == 'algol_2']
+    objectIdx['contact_bin'] = [i for i in range(len(lcType)) if lcType[i] == 'contact_bin']
+    objectIdx['DSSP'] = [i for i in range(len(lcType)) if lcType[i] == 'DSSP']
+    objectIdx['LPV'] = [i for i in range(len(lcType)) if lcType[i] == 'LPV']
+    objectIdx['heartbeat'] = [i for i in range(len(lcType)) if lcType[i] == 'heartbeat']
+    objectIdx['BL_hercules'] = [i for i in range(len(lcType)) if lcType[i] == 'BL_hercules']
+    objectIdx['anom_ceph'] = [i for i in range(len(lcType)) if lcType[i] == 'anom_ceph']
+
+    count = 0
+    fig = plt.figure()
+#    plt.suptitle('Relative Fourier Parameters vs. Period', fontsize = 20)
+    for key in objectIdx.keys():
+        idx = objectIdx[key]
+        
+        cm = plt.get_cmap('jet')
+        color = cm(1.*float(count)/len(objectIdx.keys()))
+        
+        ax1 = fig.add_subplot(1,1,1)
+        ax1.scatter(np.log10(Xvar[idx]), np.log10(Yvar[idx]), c = color, marker ='o', alpha = .5, label = key)
+        legend1 = ax1.legend(loc='lower right', ncol=1, shadow=True)
+        ax1.set_xlabel('log(Period)', fontsize = 16)
+        ax1.set_ylabel('log(R21)', fontsize = 16)
+        ax1.grid(True, which='major', linestyle='--', color = "#a6a6a6", 
+            zorder=2, alpha = .8)
+        count +=1
+    plt.show()
+
 def gaussian_mixture_model(X):  
     '''For a given matrix of data, computes a variety gaussian mixture models increasing fit complexity, selects a best model 
     based on AIC and BIC results.
@@ -909,8 +945,7 @@ def KNN(X, y):
     output : 
         n/a
     '''
-    print len(X)
-    
+    X = np.log10(X)
     # get data and split into training & testing sets
     (X_train, X_test), (y_train, y_test) = split_samples(X, y, [0.75, 0.25],
                                                          random_state=0)
@@ -924,11 +959,10 @@ def KNN(X, y):
     
     #----------------------------------------------------------------------
     # perform Classification
-    
     classifiers = []
     predictions = []
     Ncolors = np.arange(1, X.shape[1] + 1)
-    kvals = [1, 15]
+    kvals = [1, 10]
     
     for k in kvals:
         classifiers.append([])
@@ -949,39 +983,34 @@ def KNN(X, y):
     #------------------------------------------------------------
     # Compute the decision boundary
     clf = classifiers[1][1]
-    xlim = (0.7, 1.35)
-    ylim = (-0.15, 0.4)
-    
-    xx, yy = np.meshgrid(np.linspace(xlim[0], xlim[1], 71),
-                         np.linspace(ylim[0], ylim[1], 81))
-    
-    Z = clf.predict(np.c_[yy.ravel(), xx.ravel()])
-    Z = Z.reshape(xx.shape)
+    xlim = (np.min(X[-N_plot:, 1]), np.max(X[-N_plot:, 1]))
+    ylim = (np.min(X[-N_plot:, 0]), np.max(X[-N_plot:, 0]))
     
     #----------------------------------------------------------------------
     # plot the results
-    fig = plt.figure(figsize=(5, 2.5))
+    cm = plt.get_cmap('jet')
+    colors = [cm(1.*float(i)/np.max(y)) for i in y]
+    
+    fig = plt.figure()
+    plt.suptitle('KNN Classification of Variable Stars', fontsize = 20)
     fig.subplots_adjust(bottom=0.15, top=0.95, hspace=0.0,
                         left=0.1, right=0.95, wspace=0.2)
     
-    # left plot: data and decision boundary
+    # left plot: data 
     ax = fig.add_subplot(121)
-    im = ax.scatter(X[-N_plot:, 1], X[-N_plot:, 0], c=y[-N_plot:],
-                    s=4, lw=0, cmap=plt.cm.binary, zorder=2)
-    im.set_clim(-0.5, 1)
-    
-#    im = ax.imshow(Z, origin='lower', aspect='auto',
-#                   cmap=plt.cm.binary, zorder=1,
-#                   extent=xlim + ylim)
-    im.set_clim(0, 2)
-    
-    #ax.contour(xx, yy, Z, [0.5], colors='k')
-    
+    for i in [1,2,3,4,5,6,7,8,9,11]:
+        color = cm(1.*float(i)/np.max(y))
+        idx = [j for j in range(len(y)) if y[j] == i]
+        lb = convert_lcType(i)
+        im = ax.scatter(X[-N_plot:, 0][idx], X[-N_plot:, 1][idx], c=color, marker = 'o', alpha = .7, label = lb)
+    ax.grid(True)
+    legend1 = ax.legend(loc='upper right', ncol=2, shadow=True)
+
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
-    
-    ax.set_xlabel('')
-    ax.set_ylabel('')
+ 
+    ax.set_xlabel('log(Period)', fontsize = 16)
+    ax.set_ylabel('log(R21)', fontsize = 16)
     
     ax.text(0.02, 0.02, "k = %i" % kvals[1],
             transform=ax.transAxes)
@@ -996,7 +1025,7 @@ def KNN(X, y):
     ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
     ax.xaxis.set_major_formatter(plt.NullFormatter())
     
-    ax.set_ylabel('completeness')
+    ax.set_ylabel('completeness', fontsize = 16)
     ax.set_xlim(0.5, 4.5)
     ax.set_ylim(-0.1, 1.1)
     ax.grid(True)
@@ -1011,8 +1040,8 @@ def KNN(X, y):
     ax.xaxis.set_major_locator(plt.MultipleLocator(1))
     ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
     ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%i'))
-    ax.set_xlabel('N colors')
-    ax.set_ylabel('contamination')
+    ax.set_xlabel('N metrics', fontsize = 16)
+    ax.set_ylabel('contamination', fontsize = 16)
     ax.set_xlim(0.5, 4.5)
     ax.set_ylim(-0.1, 1.1)
     ax.grid(True)
