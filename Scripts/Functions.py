@@ -17,6 +17,7 @@ from astroML.plotting.tools import draw_ellipse
 from astroML.utils import split_samples
 from astroML.utils import completeness_contamination
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
 from astroML.datasets import fetch_rrlyrae_combined
 
 
@@ -949,7 +950,7 @@ def KNN(X, y):
     # get data and split into training & testing sets
     (X_train, X_test), (y_train, y_test) = split_samples(X, y, [0.75, 0.25],
                                                          random_state=0)
-    
+
     N_tot = len(y)
     N_st = np.sum(y == 0)
     N_rr = N_tot - N_st
@@ -957,39 +958,56 @@ def KNN(X, y):
     N_test = len(y_test)
     N_plot = 5000 + N_rr
     
+    
     #----------------------------------------------------------------------
     # perform Classification
     classifiers = []
     predictions = []
-    Ncolors = np.arange(1, X.shape[1] + 1)
-    kvals = [1, 10]
+    NMetrics = np.arange(1, X.shape[1] + 1)
+    print 'evaluating over', len(NMetrics), 'metric(s)'
+    kvals = [1,2,3,4,5,6,7,8,9,10]
     
     for k in kvals:
         classifiers.append([])
         predictions.append([])
-        for nc in Ncolors:
+        print 'k:', k
+        for nm in NMetrics:
+            print 'number of metrics:' , nm
             clf = KNeighborsClassifier(n_neighbors=k)
-            clf.fit(X_train[:, :nc], y_train)
-            y_pred = clf.predict(X_test[:, :nc])
+            clf.fit(X_train[:, :nm], y_train)
+            y_pred = clf.predict(X_test[:, :nm])
     
             classifiers[-1].append(clf)
             predictions[-1].append(y_pred)
     
     completeness, contamination = completeness_contamination(predictions, y_test)
     
+    
+    print len(classifiers)
+    print len(predictions)
+    
     print "completeness", completeness
     print "contamination", contamination
+    ratios = completeness[: , -1:]/contamination[: , -1:]
+    max_r = np.max(ratios)
+    bf_idx = [i for i, j in enumerate(ratios) if j == max_r][0]
+    print bf_idx
     
-    #------------------------------------------------------------
-    # Compute the decision boundary
-    clf = classifiers[1][1]
-    xlim = (np.min(X[-N_plot:, 1]), np.max(X[-N_plot:, 1]))
-    ylim = (np.min(X[-N_plot:, 0]), np.max(X[-N_plot:, 0]))
+    best_clf = classifiers[bf_idx][-1]
+    best_clf.fit(X_train[:, :bf_idx], y_train)
+    best_pred = clf.predict(X[:, :bf_idx])
+    baddies = np.where(best_pred != y)
     
     #----------------------------------------------------------------------
-    # plot the results
+    # plot the results 
+    
+#    fig = plt.figure()
+#    ax = fig.add_subplot(1,1,1)
+#    ax.plot(ratios)
+#    plt.show()
+    
     cm = plt.get_cmap('jet')
-    colors = [cm(1.*float(i)/np.max(y)) for i in y]
+#    colors = [cm(1.*float(i)/np.max(y)) for i in y]
     
     fig = plt.figure()
     plt.suptitle('KNN Classification of Variable Stars', fontsize = 20)
@@ -999,15 +1017,13 @@ def KNN(X, y):
     # left plot: data 
     ax = fig.add_subplot(121)
     for i in [1,2,3,4,5,6,7,8,9,11]:
-        color = cm(1.*float(i)/np.max(y))
-        idx = [j for j in range(len(y)) if y[j] == i]
+        color = cm(1.*float(i)/11.0)
+        idx = [j for j in range(len(best_pred)) if best_pred[j] == i]
         lb = convert_lcType(i)
         im = ax.scatter(X[-N_plot:, 0][idx], X[-N_plot:, 1][idx], c=color, marker = 'o', alpha = .7, label = lb)
     ax.grid(True)
+    ax.scatter(X[-N_plot:, 0][baddies], X[-N_plot:, 1][baddies], c='k', marker = 'x', alpha = .7, label = 'incorrect')
     legend1 = ax.legend(loc='upper right', ncol=2, shadow=True)
-
-    ax.set_xlim(xlim)
-    ax.set_ylim(ylim)
  
     ax.set_xlabel('log(Period)', fontsize = 16)
     ax.set_ylabel('log(R21)', fontsize = 16)
@@ -1015,11 +1031,13 @@ def KNN(X, y):
     ax.text(0.02, 0.02, "k = %i" % kvals[1],
             transform=ax.transAxes)
     
-    # plot completeness vs Ncolors
+    # plot completeness vs NMetrics
     ax = fig.add_subplot(222)
     
-    ax.plot(Ncolors, completeness[0], 'o-k', ms=6, label='k=%i' % kvals[0])
-    ax.plot(Ncolors, completeness[1], '^--k', ms=6, label='k=%i' % kvals[1])
+    ax.plot(NMetrics, completeness[0], 'o-k', ms=6, label='k=%i' % kvals[0])
+    ax.plot(NMetrics, completeness[1], '^--k', ms=6, label='k=%i' % kvals[1])
+    ax.plot(NMetrics, completeness[2], '<--k', ms=6, label='k=%i' % kvals[2])
+    ax.plot(NMetrics, completeness[3], 'D--k', ms=6, label='k=%i' % kvals[3])
     
     ax.xaxis.set_major_locator(plt.MultipleLocator(1))
     ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
@@ -1030,10 +1048,12 @@ def KNN(X, y):
     ax.set_ylim(-0.1, 1.1)
     ax.grid(True)
     
-    # plot contamination vs Ncolors
+    # plot contamination vs NMetrics
     ax = fig.add_subplot(224)
-    ax.plot(Ncolors, contamination[0], 'o-k', ms=6, label='k=%i' % kvals[0])
-    ax.plot(Ncolors, contamination[1], '^--k', ms=6, label='k=%i' % kvals[1])
+    ax.plot(NMetrics, contamination[0], 'o-k', ms=6, label='k=%i' % kvals[0])
+    ax.plot(NMetrics, contamination[1], '^--k', ms=6, label='k=%i' % kvals[1])
+    ax.plot(NMetrics, contamination[2], '<--k', ms=6, label='k=%i' % kvals[2])
+    ax.plot(NMetrics, contamination[3], 'D--k', ms=6, label='k=%i' % kvals[3])
     ax.legend(loc='lower right',
               bbox_to_anchor=(1.0, 0.79))
     
@@ -1047,3 +1067,4 @@ def KNN(X, y):
     ax.grid(True)
     
     plt.show()
+
