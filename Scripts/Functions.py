@@ -4,6 +4,7 @@ contains auxiliary functions for python scripts in LINEARdir
 import numpy as np
 import os
 import pylab as plt
+import matplotlib as mpl
 import shutil
 from astroML.plotting import hist
 from astroML.time_series import search_frequencies, lomb_scargle, MultiTermFit
@@ -19,7 +20,7 @@ from astroML.utils import completeness_contamination
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from astroML.datasets import fetch_rrlyrae_combined
-
+from sklearn.metrics import confusion_matrix
 
 def read_data():
     '''
@@ -100,6 +101,11 @@ def convert_lcType(object):
     if isinstance(object, float):
         types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
         lcType = types[int(object)]
+    if isinstance(object, np.ndarray):
+        types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
+        lcType = [0]*len(object)
+        for i in range(len(object)):
+            lcType[i] = types[object[i]]
     if isinstance(object, int):
         types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
         lcType = types[int(object)]
@@ -849,6 +855,41 @@ def plot_types(Xvar, Yvar, lcType):
         count +=1
     plt.show()
 
+def plot_CM(conf_arr):
+    norm_conf = []
+    for i in conf_arr:
+        a = 0
+        tmp_arr = []
+        a = sum(i, 0)
+        for j in i:
+            tmp_arr.append(float(j)/float(a))
+        norm_conf.append(tmp_arr)
+    
+    fig = plt.figure()
+    plt.suptitle('Decision Tree Classification Confusion Matrix', fontsize = 20)
+    ax = fig.add_subplot(111)
+    im1 = ax.imshow(np.array(conf_arr), cmap=plt.cm.jet,
+                    interpolation='nearest', aspect = .65)
+    res = ax.imshow(np.array(norm_conf), cmap=plt.cm.jet,
+                    interpolation='nearest', aspect = .65)
+    
+    width = len(conf_arr)
+    height = len(conf_arr[0])
+    
+    for x in xrange(width):
+        for y in xrange(height):
+            ax.annotate(str(conf_arr[x][y]), xy=(y, x), 
+                        horizontalalignment='center',
+                        verticalalignment='center')
+#    norm = mpl.colors.Normalize(vmin=5, vmax=10)
+    cb = plt.colorbar(im1)
+    labels = ['BL_hercules','DSSP','LPV', 'Other','RR_Lyrae_ab', 'RR_Lyrae_c','algol_1','algol_2','anom_ceph','contact_bin','heartbeat','listed_as_type_10']
+    plt.xticks(range(width), labels[:width])
+    plt.yticks(range(height), labels[:height])
+    plt.ylabel('True label', fontsize = 16)
+    plt.xlabel('Predicted label', fontsize = 16)
+    plt.show()
+
 def gaussian_mixture_model(X):  
     '''For a given matrix of data, computes a variety gaussian mixture models increasing fit complexity, selects a best model 
     based on AIC and BIC results.
@@ -982,32 +1023,36 @@ def KNN(X, y):
     
     completeness, contamination = completeness_contamination(predictions, y_test)
     
-    
-    print len(classifiers)
-    print len(predictions)
-    
     print "completeness", completeness
     print "contamination", contamination
+    
+    #finding the best fit
     ratios = completeness[: , -1:]/contamination[: , -1:]
     max_r = np.max(ratios)
     bf_idx = [i for i, j in enumerate(ratios) if j == max_r][0]
     print bf_idx
     
     best_clf = classifiers[bf_idx][-1]
-    best_clf.fit(X_train[:, :bf_idx], y_train)
-    best_pred = clf.predict(X[:, :bf_idx])
+    best_clf.fit(X_train, y_train)
+    best_pred = clf.predict(X)
     baddies = np.where(best_pred != y)
+    print len(baddies[0]), 'baddies'
     
+    
+    # Compute confusion matrix
+    types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
+    CM = confusion_matrix(y, best_pred)
+    foo = [sum(CM[i]) - CM[i][i] for i in range(len(CM)) ]
+    print foo
+    for type in types:
+        print type, y.count(type), list(best_pred).count(type)
+    
+    # Show confusion matrix in a separate window
+    plot_CM(CM)
+
     #----------------------------------------------------------------------
     # plot the results 
-    
-#    fig = plt.figure()
-#    ax = fig.add_subplot(1,1,1)
-#    ax.plot(ratios)
-#    plt.show()
-    
     cm = plt.get_cmap('jet')
-#    colors = [cm(1.*float(i)/np.max(y)) for i in y]
     
     fig = plt.figure()
     plt.suptitle('KNN Classification of Variable Stars', fontsize = 20)
@@ -1015,12 +1060,12 @@ def KNN(X, y):
                         left=0.1, right=0.95, wspace=0.2)
     
     # left plot: data 
-    ax = fig.add_subplot(121)
-    for i in [1,2,3,4,5,6,7,8,9,11]:
-        color = cm(1.*float(i)/11.0)
-        idx = [j for j in range(len(best_pred)) if best_pred[j] == i]
-        lb = convert_lcType(i)
-        im = ax.scatter(X[-N_plot:, 0][idx], X[-N_plot:, 1][idx], c=color, marker = 'o', alpha = .7, label = lb)
+    ax = fig.add_subplot(111)
+    for type in types:
+        color = cm(1.*float(convert_lcType(type)+1)/11.0)
+        idx = [j for j in range(len(best_pred)) if best_pred[j] == type]
+        if len(idx) != 0:
+            im = ax.scatter(X[-N_plot:, 0][idx], X[-N_plot:, 1][idx], c=color, marker = 'o', alpha = .7, label = type)
     ax.grid(True)
     ax.scatter(X[-N_plot:, 0][baddies], X[-N_plot:, 1][baddies], c='k', marker = 'x', alpha = .7, label = 'incorrect')
     legend1 = ax.legend(loc='upper right', ncol=2, shadow=True)
@@ -1031,40 +1076,175 @@ def KNN(X, y):
     ax.text(0.02, 0.02, "k = %i" % kvals[1],
             transform=ax.transAxes)
     
-    # plot completeness vs NMetrics
-    ax = fig.add_subplot(222)
-    
-    ax.plot(NMetrics, completeness[0], 'o-k', ms=6, label='k=%i' % kvals[0])
-    ax.plot(NMetrics, completeness[1], '^--k', ms=6, label='k=%i' % kvals[1])
-    ax.plot(NMetrics, completeness[2], '<--k', ms=6, label='k=%i' % kvals[2])
-    ax.plot(NMetrics, completeness[3], 'D--k', ms=6, label='k=%i' % kvals[3])
-    
-    ax.xaxis.set_major_locator(plt.MultipleLocator(1))
-    ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
-    ax.xaxis.set_major_formatter(plt.NullFormatter())
-    
-    ax.set_ylabel('completeness', fontsize = 16)
-    ax.set_xlim(0.5, 4.5)
-    ax.set_ylim(-0.1, 1.1)
-    ax.grid(True)
-    
-    # plot contamination vs NMetrics
-    ax = fig.add_subplot(224)
-    ax.plot(NMetrics, contamination[0], 'o-k', ms=6, label='k=%i' % kvals[0])
-    ax.plot(NMetrics, contamination[1], '^--k', ms=6, label='k=%i' % kvals[1])
-    ax.plot(NMetrics, contamination[2], '<--k', ms=6, label='k=%i' % kvals[2])
-    ax.plot(NMetrics, contamination[3], 'D--k', ms=6, label='k=%i' % kvals[3])
-    ax.legend(loc='lower right',
-              bbox_to_anchor=(1.0, 0.79))
-    
-    ax.xaxis.set_major_locator(plt.MultipleLocator(1))
-    ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
-    ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%i'))
-    ax.set_xlabel('N metrics', fontsize = 16)
-    ax.set_ylabel('contamination', fontsize = 16)
-    ax.set_xlim(0.5, 4.5)
-    ax.set_ylim(-0.1, 1.1)
-    ax.grid(True)
-    
+#    # plot completeness vs NMetrics
+#    ax = fig.add_subplot(222)
+#    
+#    ax.plot(NMetrics, completeness[0], 'o-k', ms=6, label='k=%i' % kvals[0])
+#    ax.plot(NMetrics, completeness[1], '^--k', ms=6, label='k=%i' % kvals[1])
+#    ax.plot(NMetrics, completeness[2], '<--k', ms=6, label='k=%i' % kvals[2])
+#    ax.plot(NMetrics, completeness[3], 'D--k', ms=6, label='k=%i' % kvals[3])
+#    
+#    ax.xaxis.set_major_locator(plt.MultipleLocator(1))
+#    ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+#    ax.xaxis.set_major_formatter(plt.NullFormatter())
+#    
+#    ax.set_ylabel('completeness', fontsize = 16)
+#    ax.set_xlim(0.5, 4.5)
+#    ax.set_ylim(-0.1, 1.1)
+#    ax.grid(True)
+#    
+#    # plot contamination vs NMetrics
+#    ax = fig.add_subplot(224)
+#    ax.plot(NMetrics, contamination[0], 'o-k', ms=6, label='k=%i' % kvals[0])
+#    ax.plot(NMetrics, contamination[1], '^--k', ms=6, label='k=%i' % kvals[1])
+#    ax.plot(NMetrics, contamination[2], '<--k', ms=6, label='k=%i' % kvals[2])
+#    ax.plot(NMetrics, contamination[3], 'D--k', ms=6, label='k=%i' % kvals[3])
+#    ax.legend(loc='lower right',
+#              bbox_to_anchor=(1.0, 0.79))
+#    
+#    ax.xaxis.set_major_locator(plt.MultipleLocator(1))
+#    ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+#    ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%i'))
+#    ax.set_xlabel('N metrics', fontsize = 16)
+#    ax.set_ylabel('contamination', fontsize = 16)
+#    ax.set_xlim(0.5, 4.5)
+#    ax.set_ylim(-0.1, 1.1)
+#    ax.grid(True)
+#    
     plt.show()
 
+def Trees(X, y):
+    '''
+    Parameters
+    ----------
+    X : array_like
+        2D matrix, each entry being a set of parameters for a sample (n_samples by n_features)
+    y : array_like
+        1D array of integers corresponding to labels for each sample
+    
+    Returns
+    -------
+    output : 
+        n/a
+    '''
+    X = np.log10(X)
+    # get data and split into training & testing sets
+    (X_train, X_test), (y_train, y_test) = split_samples(X, y, [0.75, 0.25],
+                                                         random_state=0)
+
+    N_tot = len(y)
+    N_st = np.sum(y == 0)
+    N_rr = N_tot - N_st
+    N_train = len(y_train)
+    N_test = len(y_test)
+    N_plot = 5000 + N_rr
+    
+    #----------------------------------------------------------------------
+    # Fit Decision tree
+    NMetrics = np.arange(1, X.shape[1] + 1)
+    
+    classifiers = []
+    predictions = []
+    depths = [1,2,3,4,4.2,4.5,4.7,5,7,8,9,10,11,12]
+    
+    for depth in depths:
+        classifiers.append([])
+        predictions.append([])
+        for nm in NMetrics:
+            clf = DecisionTreeClassifier(random_state=0, max_depth=depth,
+                                         criterion='entropy')
+            clf.fit(X_train[:, :nm], y_train)
+            y_pred = clf.predict(X_test[:, :nm])
+    
+            classifiers[-1].append(clf)
+            predictions[-1].append(y_pred)
+    
+    completeness, contamination = completeness_contamination(predictions, y_test)
+    
+    print "completeness", completeness
+    print "contamination", contamination
+    
+    #finding the best fit
+    ratios = completeness[: , -1:]/contamination[: , -1:]
+    max_r = np.max(ratios)
+    bf_idx = [i for i, j in enumerate(ratios) if j == max_r][0]
+    print bf_idx
+
+    best_clf = classifiers[bf_idx][-1]
+    best_clf.fit(X_train, y_train)
+    best_pred = clf.predict(X)
+    baddies = np.where(best_pred != y)
+    print len(baddies[0]), 'baddies'
+    
+    # Compute confusion matrix
+    types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
+    CM = confusion_matrix(y, best_pred)
+    foo = [sum(CM[i]) - CM[i][i] for i in range(len(CM)) ]
+    print foo
+    for type in types:
+        print type, y.count(type), list(best_pred).count(type)
+    
+    # Show confusion matrix in a separate window
+    plot_CM(CM)
+    
+    #----------------------------------------------------------------------
+    # plot the results
+    cm = plt.get_cmap('jet')
+    
+    fig = plt.figure()
+    plt.suptitle('Decision Tree Classification of Variable Stars', fontsize = 20)
+    fig.subplots_adjust(bottom=0.15, top=0.95, hspace=0.0,
+                        left=0.1, right=0.95, wspace=0.2)
+    
+    # left plot: data 
+    ax = fig.add_subplot(111)
+    for type in types:
+        color = cm(1.*float(convert_lcType(type)+1)/11.0)
+        idx = [j for j in range(len(best_pred)) if best_pred[j] == type]
+        if len(idx) != 0:
+            im = ax.scatter(X[-N_plot:, 0][idx], X[-N_plot:, 1][idx], c=color, marker = 'o', alpha = .7, label = type)
+    ax.grid(True)
+    ax.scatter(X[-N_plot:, 0][baddies], X[-N_plot:, 1][baddies], c='k', marker = 'x', alpha = .7, label = 'incorrect')
+    legend1 = ax.legend(loc='upper right', ncol=2, shadow=True)
+ 
+    ax.set_xlabel('log(Period)', fontsize = 16)
+    ax.set_ylabel('log(R21)', fontsize = 16)
+    
+    ax.text(0.02, 0.02, "k = %i" % depths[1],
+            transform=ax.transAxes)
+#    
+#    # plot completeness vs NMetrics
+#    ax = fig.add_subplot(222)
+#    ax.plot(NMetrics, completeness[0], 'o-k', ms=6, label="depth=%i" % depths[0])
+#    ax.plot(NMetrics, completeness[1], '^--k', ms=6, label="depth=%i" % depths[1])
+#    ax.plot(NMetrics, completeness[2], '<--k', ms=6, label='k=%i' % depths[2])
+#    ax.plot(NMetrics, completeness[3], 'D--k', ms=6, label='k=%i' % depths[3])
+#    ax.xaxis.set_major_locator(plt.MultipleLocator(1))
+#    ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+#    ax.xaxis.set_major_formatter(plt.NullFormatter())
+#    
+#    ax.set_ylabel('completeness')
+#    ax.set_xlim(0.5, 4.5)
+#    ax.set_ylim(-0.1, 1.1)
+#    ax.grid(True)
+#    
+#    # plot contamination vs NMetrics
+#    ax = fig.add_subplot(224)
+#    ax.plot(NMetrics, contamination[0], 'o-k', ms=6, label="depth=%i" % depths[0])
+#    ax.plot(NMetrics, contamination[1], '^--k', ms=6, label="depth=%i" % depths[1])
+#    ax.plot(NMetrics, contamination[2], '<--k', ms=6, label='k=%i' % depths[2])
+#    ax.plot(NMetrics, contamination[3], 'D--k', ms=6, label='k=%i' % depths[3])
+#    ax.legend(loc='lower right',
+#              bbox_to_anchor=(1.0, 0.79))
+#    
+#    ax.xaxis.set_major_locator(plt.MultipleLocator(1))
+#    ax.yaxis.set_major_locator(plt.MultipleLocator(0.2))
+#    ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%i'))
+#    
+#    ax.set_xlabel('N Metrics')
+#    ax.set_ylabel('contamination')
+#    ax.set_xlim(0.5, 4.5)
+#    ax.set_ylim(-0.1, 1.1)
+#    ax.grid(True)
+    
+    plt.show()

@@ -23,6 +23,7 @@ RFP = func.ComputeRFP(allData)#compute the relative fourier parameters
 #func.gaussian_mixture_model(X)#unsupervised learning via gaussian mixture models
 
 #----1.4(KNN)-------------------------------
-X = np.array([allData['period'],RFP['R21']]).T #allData['period'],RFP['R21'],RFP['R41']
-y = [func.convert_lcType(i) for i in allData['lcType']]
-func.KNN(X, y)#supervised learning via K-nearest neighbors
+X = np.array([allData['period'],RFP['R21'],RFP['R41']]).T #allData['period'],RFP['R21'],RFP['R41']
+y = allData['lcType']
+#func.KNN(X, y)#supervised learning via K-nearest neighbors
+func.Trees(X, y)#supervised learning via decision trees
