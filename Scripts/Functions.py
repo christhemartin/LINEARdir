@@ -866,7 +866,7 @@ def plot_CM(conf_arr):
         norm_conf.append(tmp_arr)
     
     fig = plt.figure()
-    plt.suptitle('Decision Tree Classification Confusion Matrix', fontsize = 20)
+    plt.suptitle('KNN Classification Confusion Matrix', fontsize = 34)
     ax = fig.add_subplot(111)
     im1 = ax.imshow(np.array(conf_arr), cmap=plt.cm.jet,
                     interpolation='nearest', aspect = .65)
@@ -878,7 +878,7 @@ def plot_CM(conf_arr):
     
     for x in xrange(width):
         for y in xrange(height):
-            ax.annotate(str(conf_arr[x][y]), xy=(y, x), 
+            ax.annotate(str(conf_arr[x][y]), xy=(y, x), color = 'white',
                         horizontalalignment='center',
                         verticalalignment='center')
 #    norm = mpl.colors.Normalize(vmin=5, vmax=10)
@@ -886,10 +886,9 @@ def plot_CM(conf_arr):
     labels = ['BL_hercules','DSSP','LPV', 'Other','RR_Lyrae_ab', 'RR_Lyrae_c','algol_1','algol_2','anom_ceph','contact_bin','heartbeat','listed_as_type_10']
     plt.xticks(range(width), labels[:width])
     plt.yticks(range(height), labels[:height])
-    plt.ylabel('True label', fontsize = 16)
-    plt.xlabel('Predicted label', fontsize = 16)
+    plt.ylabel('True label', fontsize = 22)
+    plt.xlabel('Predicted label', fontsize = 22)
     plt.show()
-
 def gaussian_mixture_model(X):  
     '''For a given matrix of data, computes a variety gaussian mixture models increasing fit complexity, selects a best model 
     based on AIC and BIC results.
@@ -1145,8 +1144,8 @@ def Trees(X, y):
     
     classifiers = []
     predictions = []
-    depths = [1,2,3,4,4.2,4.5,4.7,5,7,8,9,10,11,12]
-    
+#    depths = [1,2,3,4,4.2,4.5,4.7,5,7,8,9,10,11,12]
+    depths = [7,12]
     for depth in depths:
         classifiers.append([])
         predictions.append([])
@@ -1155,10 +1154,9 @@ def Trees(X, y):
                                          criterion='entropy')
             clf.fit(X_train[:, :nm], y_train)
             y_pred = clf.predict(X_test[:, :nm])
-    
             classifiers[-1].append(clf)
             predictions[-1].append(y_pred)
-    
+
     completeness, contamination = completeness_contamination(predictions, y_test)
     
     print "completeness", completeness
@@ -1174,11 +1172,12 @@ def Trees(X, y):
     best_clf.fit(X_train, y_train)
     best_pred = clf.predict(X)
     baddies = np.where(best_pred != y)
-    print len(baddies[0]), 'baddies'
+    print len(baddies[0]), 'baddies out of ', len(y)
     
     # Compute confusion matrix
     types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
     CM = confusion_matrix(y, best_pred)
+    print CM
     foo = [sum(CM[i]) - CM[i][i] for i in range(len(CM)) ]
     print foo
     for type in types:
@@ -1192,7 +1191,7 @@ def Trees(X, y):
     cm = plt.get_cmap('jet')
     
     fig = plt.figure()
-    plt.suptitle('Decision Tree Classification of Variable Stars', fontsize = 20)
+    plt.suptitle('Decision Tree Classification of Variable Stars', fontsize = 24)
     fig.subplots_adjust(bottom=0.15, top=0.95, hspace=0.0,
                         left=0.1, right=0.95, wspace=0.2)
     
@@ -1204,7 +1203,7 @@ def Trees(X, y):
         if len(idx) != 0:
             im = ax.scatter(X[-N_plot:, 0][idx], X[-N_plot:, 1][idx], c=color, marker = 'o', alpha = .7, label = type)
     ax.grid(True)
-    ax.scatter(X[-N_plot:, 0][baddies], X[-N_plot:, 1][baddies], c='k', marker = 'x', alpha = .7, label = 'incorrect')
+    ax.scatter(X[-N_plot:, 0][baddies], X[-N_plot:, 1][baddies], c='k', marker = 'x',s = 100, alpha = .7, label = 'incorrect')
     legend1 = ax.legend(loc='upper right', ncol=2, shadow=True)
  
     ax.set_xlabel('log(Period)', fontsize = 16)
