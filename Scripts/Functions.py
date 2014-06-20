@@ -21,6 +21,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from astroML.datasets import fetch_rrlyrae_combined
 from sklearn.metrics import confusion_matrix
+import time
 
 def read_data():
     '''
@@ -48,7 +49,7 @@ def read_data():
     temp_data = [line.split() for line in lines]
 
 #    temp_data = np.loadtxt('iterFTcoeffs.dat')
-    data['id'] = np.array([float(i[0]) for i in temp_data])
+    data['id'] = np.array([str(i[0]) for i in temp_data])
     data['period'] = np.array([float(i[1]) for i in temp_data])
     data['chi2R'] = np.array([float(i[2]) for i in temp_data])
     data['chi2dof'] = np.array([float(i[3]) for i in temp_data])
@@ -60,6 +61,60 @@ def read_data():
     data['coefficients'] = np.array([map(float, i[9:]) for i in temp_data])
     os.chdir(od)
     return data
+
+def merge_data(coeff_data, g_data):
+    g_set = set(g_data['LINEARobjectID'])
+    bad_idx = set([i for i in range(len(coeff_data['id'])) if coeff_data['id'][i] not in g_data['LINEARobjectID']])
+    for key in coeff_data.keys():
+        coeff_data[key] = [item for index, item in enumerate(coeff_data[key]) if index not in bad_idx]
+
+    ordering_idx = [list(g_data['LINEARobjectID']).index(id) for id in coeff_data['id']]
+    g_data['LINEARobjectID'] = [g_data['LINEARobjectID'][i] for i in ordering_idx]
+
+    coeff_data['ra'] = np.array([float(g_data['RA'][i]) for i in ordering_idx])
+    coeff_data['dec'] = np.array([float(g_data['Dec'][i]) for i in ordering_idx])
+    coeff_data['ug'] = np.array([float(g_data['ug'][i]) for i in ordering_idx])
+    coeff_data['gi'] = np.array([float(g_data['gi'][i]) for i in ordering_idx])
+    coeff_data['iK'] = np.array([float(g_data['iK'][i]) for i in ordering_idx])
+    coeff_data['JK'] = np.array([float(g_data['JK'][i]) for i in ordering_idx])
+    coeff_data['amp'] = np.array([float(g_data['amp'][i]) for i in ordering_idx])
+    coeff_data['skew'] = np.array([float(g_data['skew'][i]) for i in ordering_idx])
+    coeff_data['kurt'] = np.array([float(g_data['kurt'][i]) for i in ordering_idx])
+    coeff_data['magMed'] = np.array([float(g_data['magMed'][i]) for i in ordering_idx])
+    coeff_data['nObs'] = np.array([int(g_data['nObs'][i]) for i in ordering_idx])
+    
+    for key in ['ra','dec', 'ug', 'gi', 'iK', 'JK', 'amp', 'skew', 'kurt']:
+        coeff_data[key] += abs(np.min(coeff_data[key])) + 1.0
+    
+    return coeff_data
+
+def test_plot(all_data):
+    fig = plt.figure()
+    ax1 = plt.subplot(3,2,1)
+    plt.plot(all_data['gi'], np.log10(all_data['period']),'.b')
+    plt.xlabel('gi')
+    plt.ylabel('P')
+    plt.subplot(3,2,2)
+    plt.plot(all_data['amp'],np.log10(all_data['period']),'.b')
+    plt.xlabel('amp')
+    plt.ylabel('P')
+    plt.subplot(3,2,3)
+    plt.plot(all_data['gi'],all_data['skew'],'.b')
+    plt.xlabel('gi')
+    plt.ylabel('skew')
+    plt.subplot(3,2,4)
+    plt.plot(all_data['gi'],all_data['ug'],'.b')
+    plt.xlabel('gi')
+    plt.ylabel('ug')
+    plt.subplot(3,2,5)
+    plt.plot(all_data['gi'],all_data['iK'],'.b')
+    plt.xlabel('gi')
+    plt.ylabel('iK')
+    plt.subplot(3,2,6)
+    plt.plot(all_data['gi'],all_data['JK'],'.b')
+    plt.xlabel('gi')
+    plt.ylabel('JK')
+    plt.show()
 
 def save_plots(Objs, path):
     '''Find objects, copy individual plots, and place them into a separate directory for later viewing
@@ -855,7 +910,7 @@ def plot_types(Xvar, Yvar, lcType):
         count +=1
     plt.show()
 
-def plot_CM(conf_arr):
+def plot_CM(conf_arr, labels):
     norm_conf = []
     for i in conf_arr:
         a = 0
@@ -866,7 +921,7 @@ def plot_CM(conf_arr):
         norm_conf.append(tmp_arr)
     
     fig = plt.figure()
-    plt.suptitle('KNN Classification Confusion Matrix', fontsize = 34)
+    plt.suptitle('Decision Tree Classification Confusion Matrix', fontsize = 34)
     ax = fig.add_subplot(111)
     im1 = ax.imshow(np.array(conf_arr), cmap=plt.cm.jet,
                     interpolation='nearest', aspect = .65)
@@ -878,17 +933,29 @@ def plot_CM(conf_arr):
     
     for x in xrange(width):
         for y in xrange(height):
-            ax.annotate(str(conf_arr[x][y]), xy=(y, x), color = 'white',
+            if x == y:
+                completeness = 'comp: ' + str(float(conf_arr[x][y])/float(np.sum(conf_arr[x])))[:5]
+                fp = float(np.sum(conf_arr[: , y])) - float(conf_arr[x][y])
+                contamination = 'cont: ' + str(fp/float(np.sum(conf_arr[y])))[:5]
+                foo =  completeness + ' ' + contamination
+                ax.annotate(foo, xy=(y, x+.25), color = 'white',
+                        horizontalalignment='center',
+                        verticalalignment='center')
+             
+            annotation = str(conf_arr[x][y])    
+            ax.annotate(annotation, xy=(y, x), color = 'white',
                         horizontalalignment='center',
                         verticalalignment='center')
 #    norm = mpl.colors.Normalize(vmin=5, vmax=10)
     cb = plt.colorbar(im1)
-    labels = ['BL_hercules','DSSP','LPV', 'Other','RR_Lyrae_ab', 'RR_Lyrae_c','algol_1','algol_2','anom_ceph','contact_bin','heartbeat','listed_as_type_10']
+#    labels = ['BL_hercules','DSSP','LPV', 'Other','RR_Lyrae_ab', 'RR_Lyrae_c','algol_1','algol_2','anom_ceph','contact_bin','heartbeat','listed_as_type_10']
+    labels = ['DSSP','RR_Lyrae_ab','RR_Lyrae_c','algol_2','contact_bin']
     plt.xticks(range(width), labels[:width])
     plt.yticks(range(height), labels[:height])
     plt.ylabel('True label', fontsize = 22)
     plt.xlabel('Predicted label', fontsize = 22)
     plt.show()
+    
 def gaussian_mixture_model(X):  
     '''For a given matrix of data, computes a variety gaussian mixture models increasing fit complexity, selects a best model 
     based on AIC and BIC results.
@@ -1005,14 +1072,13 @@ def KNN(X, y):
     predictions = []
     NMetrics = np.arange(1, X.shape[1] + 1)
     print 'evaluating over', len(NMetrics), 'metric(s)'
-    kvals = [1,2,3,4,5,6,7,8,9,10]
+    kvals = [2,7,10,15]
     
     for k in kvals:
         classifiers.append([])
         predictions.append([])
         print 'k:', k
         for nm in NMetrics:
-            print 'number of metrics:' , nm
             clf = KNeighborsClassifier(n_neighbors=k)
             clf.fit(X_train[:, :nm], y_train)
             y_pred = clf.predict(X_test[:, :nm])
@@ -1021,33 +1087,31 @@ def KNN(X, y):
             predictions[-1].append(y_pred)
     
     completeness, contamination = completeness_contamination(predictions, y_test)
-    
-    print "completeness", completeness
-    print "contamination", contamination
-    
+
     #finding the best fit
-    ratios = completeness[: , -1:]/contamination[: , -1:]
-    max_r = np.max(ratios)
-    bf_idx = [i for i, j in enumerate(ratios) if j == max_r][0]
-    print bf_idx
+    idx1,idx2 = np.unravel_index(completeness.argmax(), completeness.shape)
     
-    best_clf = classifiers[bf_idx][-1]
+    best_clf = classifiers[idx1][idx2]
     best_clf.fit(X_train, y_train)
-    best_pred = clf.predict(X)
+    best_pred = best_clf.predict(X)
     baddies = np.where(best_pred != y)
     print len(baddies[0]), 'baddies'
+    
+    best_comp, best_cont = completeness_contamination(best_pred, y)
+    print 'the best completeness: ', best_comp
     
     
     # Compute confusion matrix
     types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
     CM = confusion_matrix(y, best_pred)
-    foo = [sum(CM[i]) - CM[i][i] for i in range(len(CM)) ]
-    print foo
-    for type in types:
-        print type, y.count(type), list(best_pred).count(type)
+    print CM
+    labels = [type for type in types if y.count(type) != 0]
+    print labels
+    for label in types:
+        print label, y.count(label), list(best_pred).count(label)
     
     # Show confusion matrix in a separate window
-    plot_CM(CM)
+    plot_CM(CM,labels)
 
     #----------------------------------------------------------------------
     # plot the results 
@@ -1144,8 +1208,7 @@ def Trees(X, y):
     
     classifiers = []
     predictions = []
-#    depths = [1,2,3,4,4.2,4.5,4.7,5,7,8,9,10,11,12]
-    depths = [7,12]
+    depths = [2,7,10,15]
     for depth in depths:
         classifiers.append([])
         predictions.append([])
@@ -1158,33 +1221,29 @@ def Trees(X, y):
             predictions[-1].append(y_pred)
 
     completeness, contamination = completeness_contamination(predictions, y_test)
-    
-    print "completeness", completeness
-    print "contamination", contamination
-    
-    #finding the best fit
-    ratios = completeness[: , -1:]/contamination[: , -1:]
-    max_r = np.max(ratios)
-    bf_idx = [i for i, j in enumerate(ratios) if j == max_r][0]
-    print bf_idx
 
-    best_clf = classifiers[bf_idx][-1]
-    best_clf.fit(X_train, y_train)
-    best_pred = clf.predict(X)
-    baddies = np.where(best_pred != y)
-    print len(baddies[0]), 'baddies out of ', len(y)
+    #finding the best fit
+    idx1,idx2 = np.unravel_index(completeness.argmax(), completeness.shape)
     
+    best_clf = classifiers[idx1][idx2]
+    best_clf.fit(X_train, y_train)
+    best_pred = best_clf.predict(X)
+    baddies = np.where(best_pred != y)
+    print len(baddies[0]), 'baddies'
+    
+    best_comp, best_cont = completeness_contamination(best_pred, y)
+    print 'the best completeness: ', best_comp
     # Compute confusion matrix
     types = ['Other','RR_Lyrae_ab','RR_Lyrae_c','algol_1','algol_2','contact_bin','DSSP','LPV','heartbeat','BL_hercules', 'listed_as_type_10','anom_ceph']
     CM = confusion_matrix(y, best_pred)
     print CM
     foo = [sum(CM[i]) - CM[i][i] for i in range(len(CM)) ]
-    print foo
-    for type in types:
-        print type, y.count(type), list(best_pred).count(type)
-    
+    labels = [label for label in types if y.count(label) != 0]
+    for label in types:
+        print label, y.count(label), list(best_pred).count(label)
+
     # Show confusion matrix in a separate window
-    plot_CM(CM)
+    plot_CM(CM,labels)
     
     #----------------------------------------------------------------------
     # plot the results
@@ -1197,11 +1256,11 @@ def Trees(X, y):
     
     # left plot: data 
     ax = fig.add_subplot(111)
-    for type in types:
-        color = cm(1.*float(convert_lcType(type)+1)/11.0)
-        idx = [j for j in range(len(best_pred)) if best_pred[j] == type]
+    for label in types:
+        color = cm(1.*float(convert_lcType(label)+1)/11.0)
+        idx = [j for j in range(len(best_pred)) if best_pred[j] == label]
         if len(idx) != 0:
-            im = ax.scatter(X[-N_plot:, 0][idx], X[-N_plot:, 1][idx], c=color, marker = 'o', alpha = .7, label = type)
+            im = ax.scatter(X[-N_plot:, 0][idx], X[-N_plot:, 1][idx], c=color, marker = 'o', alpha = .7, label = label)
     ax.grid(True)
     ax.scatter(X[-N_plot:, 0][baddies], X[-N_plot:, 1][baddies], c='k', marker = 'x',s = 100, alpha = .7, label = 'incorrect')
     legend1 = ax.legend(loc='upper right', ncol=2, shadow=True)
